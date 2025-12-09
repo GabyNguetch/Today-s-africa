@@ -38,14 +38,11 @@ const Navbar = () => (
     </div>
 
     <div className="flex items-center gap-4">
-      <Link href="#" className="hidden sm:block text-xs font-semibold text-gray-900 dark:text-gray-100 hover:opacity-80">
-        À Propos
-      </Link>
       <Button 
         
         className="h-9 px-4 bg-[#2563EB] hover:bg-[#1d4ed8] text-white rounded text-xs font-bold uppercase tracking-wider dark:bg-[#2563EB]"
       >
-        <Link href='/login'>S'abonner</Link>
+        <Link href='/login'>Rédiger</Link>
         
       </Button>
       {/* Mobile Menu Icon */}
@@ -163,30 +160,35 @@ export default function Home() {
                 </div>
             </div>
 
-            {/* Right Content - SVG Map */}
-            <div className="flex-1 w-full flex justify-end">
-                <div className="relative w-full aspect-video md:aspect-[4/3] rounded-xl overflow-hidden bg-black border border-gray-800 shadow-2xl flex items-center justify-center group">
-                    <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-zinc-800 to-black opacity-80" />
-                    <div className="relative z-10 p-4">
-                       <svg viewBox="0 0 200 200" className="w-full h-full max-w-sm md:max-w-md mx-auto opacity-90 drop-shadow-[0_0_20px_rgba(19,236,19,0.25)]">
-                          <path 
-                            fill="none" 
-                            stroke="#444" 
-                            strokeWidth="1.5"
-                            d="M80,30 Q120,10 160,50 Q180,80 150,140 Q100,190 60,150 Q20,100 80,30 Z" 
-                            className="scale-90 translate-x-4" 
-                          />
-                          <path 
-                            fill="none" 
-                            stroke="#13EC13" 
-                            strokeWidth="2.5"
-                            strokeLinecap="round"
-                            d="M80,30 Q120,10 160,50 Q180,80 150,140 Q100,190 60,150 Q20,100 80,30 Z" 
-                            className="scale-90 translate-x-4 animate-[pulse_3s_ease-in-out_infinite]" 
-                          />
-                       </svg>
+            {/* Right Content - IMAGE REELLE */}
+            <div className="flex-1 w-full flex justify-end relative">
+                {/* Cadre de l'image avec effet 'glass' subtil et bordure brillante */}
+                <div className="relative w-full aspect-video md:aspect-[16/10] lg:h-[450px] rounded-2xl overflow-hidden shadow-2xl shadow-black/20 group border-4 border-white dark:border-zinc-800/50">
+                    <Image 
+                        src="/images/im1.avif" 
+                        alt="Vision de l'Afrique"
+                        fill
+                        priority
+                        className="object-cover transition-transform duration-700 group-hover:scale-105"
+                    />
+                    
+                    {/* Overlay Dégradé pour texte ou style */}
+                    <div className="absolute inset-0 bg-gradient-to-tr from-black/60 via-transparent to-transparent opacity-80" />
+                    
+                    {/* Badge ou Info sur l'image */}
+                    <div className="absolute bottom-6 left-6 backdrop-blur-md bg-white/10 border border-white/20 p-4 rounded-xl max-w-xs transform translate-y-4 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-500">
+                         <div className="flex items-center gap-2 mb-1">
+                             <div className="w-2 h-2 rounded-full bg-[#13EC13] animate-pulse" />
+                             <span className="text-[10px] uppercase font-bold text-green-300 tracking-wider">Focus</span>
+                         </div>
+                         <p className="text-white text-xs leading-snug font-medium">
+                            La digitalisation rapide transforme le paysage économique continental.
+                         </p>
                     </div>
                 </div>
+                
+                {/* Element décoratif flottant arrière-plan */}
+                <div className="absolute -bottom-6 -right-6 w-32 h-32 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-20 dark:invert z-[-1]" />
             </div>
         </section>
 

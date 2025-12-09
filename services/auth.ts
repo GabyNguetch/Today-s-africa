@@ -48,7 +48,7 @@ export const authService = {
     if (typeof window !== "undefined") {
       localStorage.removeItem(STORAGE_KEY_USER);
       localStorage.removeItem(STORAGE_KEY_IS_AUTH);
-      window.location.href = "/login";
+      window.location.href = "/";
     }
   },
 
