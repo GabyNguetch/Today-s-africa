@@ -25,13 +25,13 @@ const Navbar = () => (
 
       {/* Nav Links (Desktop) */}
       <div className="hidden lg:flex items-center gap-6">
-        {HOME_DATA.navLinks.map((link) => (
+        {HOME_DATA.navLinks.map((item) => (
           <Link 
-            key={link} 
+            key={item.slug} 
             href="#" 
             className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 hover:text-[#3E7B52] dark:text-gray-400 dark:hover:text-[#13EC13] transition-colors"
           >
-            {link}
+            {item.label}
           </Link>
         ))}
       </div>
