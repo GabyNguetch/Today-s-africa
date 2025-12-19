@@ -55,9 +55,8 @@ export default function MyArticles({ onEdit }: MyArticlesProps) {
         // Sécurisation Array
         const cleanList = Array.isArray(data) ? data : (data.content || []);
         
-        // Tri décroissant date
-        cleanList.sort((a,b) => new Date(b.dateCreation).getTime() - new Date(a.dateCreation).getTime());
-        
+        // On type explicitement 'a' et 'b'
+        cleanList.sort((a: ArticleReadDto, b: ArticleReadDto) => new Date(b.dateCreation).getTime() - new Date(a.dateCreation).getTime());
         setArticles(cleanList);
     } catch (e) {
         console.error("Erreur Fetch", e);
