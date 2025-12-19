@@ -35,7 +35,7 @@ export default function MyArticles({ onEdit }: MyArticlesProps) {
     setArticles([]);
 
     try {
-        let data: any[] = [];
+        let data: any = [];
         
         // Logique Swagger spécifique par Onglet
         if (activeTab === 'BROUILLONS') {
