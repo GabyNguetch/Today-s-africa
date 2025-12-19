@@ -7,7 +7,7 @@ import { ArrowRight, Globe, Menu, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { APP_CONFIG } from "@/lib/constant";
 import { PublicService } from "@/services/public";
-import { Rubrique } from "@/services/article";
+import { Rubrique } from "@/types/article";
 import { useRouter } from "next/navigation";
 
 export default function Navbar() {
