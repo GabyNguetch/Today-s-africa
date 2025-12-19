@@ -2,7 +2,8 @@
 
 import React, { useEffect, useState } from 'react';
 import { Edit, Trash2, RefreshCw, Eye, Send, FileClock, CheckCircle, FileText } from 'lucide-react';
-import { ArticleService, ArticleReadDto } from '@/services/article';
+import { ArticleReadDto } from '@/types/article';
+import { ArticleService } from '@/services/article';
 import { useAuth } from '@/context/AuthContext';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
