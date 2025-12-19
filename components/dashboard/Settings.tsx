@@ -35,13 +35,13 @@ export default function Settings() {
                 <div className="bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 rounded-xl p-6 text-center sticky top-6 shadow-sm">
                     <div className="relative mx-auto w-24 h-24 mb-4 group cursor-pointer">
                          <div className="w-full h-full bg-[#3E7B52] dark:bg-[#13EC13] rounded-full flex items-center justify-center text-white dark:text-black font-bold text-3xl">
-                            {user.name.charAt(0).toUpperCase()}
+                            {user.fullName.charAt(0).toUpperCase()}
                          </div>
                          <div className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                              <span className="text-white text-xs">Modifier</span>
                          </div>
                     </div>
-                    <h3 className="font-bold text-lg text-gray-900 dark:text-white truncate">{user.name}</h3>
+                    <h3 className="font-bold text-lg text-gray-900 dark:text-white truncate">{user.fullName}</h3>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">{user.email}</p>
                     <span className="inline-block px-3 py-1 bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-[10px] font-bold uppercase rounded-full tracking-wide">
                         {user.role}
@@ -71,7 +71,7 @@ export default function Settings() {
                         <div className="grid grid-cols-2 gap-4">
                             <div>
                                 <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5">Nom complet</label>
-                                <Input label="" placeholder={user.name} defaultValue={user.name} className="h-10 dark:bg-zinc-950 dark:border-zinc-700"/>
+                                <Input label="" placeholder={user.fullName} defaultValue={user.fullName} className="h-10 dark:bg-zinc-950 dark:border-zinc-700"/>
                             </div>
                             <div>
                                 <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5">Rôle</label>
