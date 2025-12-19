@@ -11,7 +11,7 @@ import ArticleCard from "@/components/ui/ArticleCard";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import { PublicService } from "@/services/public";
-import { ArticleReadDto, Rubrique } from "@/services/article";
+import { ArticleReadDto, Rubrique } from "@/types/article";
 
 // --- COMPOSANT SKELETON CARD (Interne) ---
 const SkeletonCard = () => (

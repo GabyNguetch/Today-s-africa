@@ -1,6 +1,6 @@
 // FICHIER: services/public.ts
 import { APP_CONFIG } from "@/lib/constant";
-import { ArticleReadDto, Rubrique } from "./article";
+import { ArticleReadDto, Rubrique } from "@/types/article"; // <--- Import absolu correct
 import { PageResponse } from "@/types/dashboard";
 
 // On cible les routes publiques pour éviter les problèmes de Token sur la home

@@ -8,7 +8,7 @@ import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import ArticleCard from "@/components/ui/ArticleCard";
 import { PublicService } from "@/services/public";
-import { ArticleReadDto, Rubrique } from "@/services/article";
+import { ArticleReadDto, Rubrique } from "@/types/article";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
