@@ -1,3 +1,5 @@
+// FICHIER: components/dashboard/new-article/ArticleSettings.tsx - UPLOAD CORRIGÉ
+
 "use client";
 
 import React, { useEffect, useState } from "react";
@@ -5,11 +7,21 @@ import Image from "next/image";
 import { 
   UploadCloud, ImageIcon, Loader2, AlertCircle, Plus, 
   ChevronDown, Check, Search, X, RefreshCw, 
-  CornerDownRight, Globe 
+  CornerDownRight, Globe, MapPin, Sparkles, Trash2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ArticleService } from "@/services/article";
 import { Rubrique } from "@/types/article";
+
+// RÉGIONS
+const TARGET_REGIONS = [
+  { id: "GLOBAL", label: "🌍 Afrique (Global)" },
+  { id: "AFRIQUE_OUEST", label: "📍 Afrique de l'Ouest" },
+  { id: "AFRIQUE_CENTRALE", label: "📍 Afrique Centrale" },
+  { id: "AFRIQUE_EST", label: "📍 Afrique de l'Est" },
+  { id: "AFRIQUE_NORD", label: "📍 Afrique du Nord" },
+  { id: "AFRIQUE_SUD", label: "📍 Afrique Australe" },
+];
 
 interface ArticleSettingsProps {
   titre: string;
@@ -18,14 +30,10 @@ interface ArticleSettingsProps {
   setDescription: (v: string) => void;
   rubriqueId: number | null;
   setRubriqueId: (v: number) => void;
-  
-  // Peut être string UUID ou Number.
   coverImageId: string | number | null; 
   setCoverImageId: (v: string | number | null) => void; 
-  
   coverImageUrl: string | null;
   setCoverImageUrl: (v: string | null) => void;
-
   region: string;
   setRegion: (v: string) => void;
 }
@@ -38,20 +46,10 @@ export default function ArticleSettings(props: ArticleSettingsProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [isCreating, setIsCreating] = useState(false);
   const [newName, setNewName] = useState("");
-
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
 
-  // Liste régions statique
-  const REGIONS = [
-      { id: "GLOBAL", label: "Global / Afrique" },
-      { id: "AFRIQUE_OUEST", label: "Afrique de l'Ouest" },
-      { id: "AFRIQUE_CENTRALE", label: "Afrique Centrale" },
-      { id: "AFRIQUE_EST", label: "Afrique de l'Est" },
-      { id: "AFRIQUE_NORD", label: "Afrique du Nord" },
-      { id: "AFRIQUE_AUSTRALE", label: "Afrique Australe" },
-  ];
-
+  // Chargement rubriques
   useEffect(() => {
     loadRubriques();
   }, []);
@@ -59,70 +57,105 @@ export default function ArticleSettings(props: ArticleSettingsProps) {
   const loadRubriques = async () => {
     setIsRubriqueLoading(true);
     try {
-        const tree = await ArticleService.getRubriquesTree();
-        if(!Array.isArray(tree)) return;
+      const tree = await ArticleService.getRubriquesTree();
+      if (!Array.isArray(tree)) return;
 
-        const flat: Rubrique[] = [];
-        const flatten = (nodes: Rubrique[]) => {
-            nodes.forEach(node => {
-                if(node) {
-                    flat.push(node);
-                    if (node.enfants) flatten(node.enfants);
-                }
-            });
-        };
-        flatten(tree);
-        setFlatRubriques(flat);
-    } catch(e) { 
-        console.error("Err rubriques", e);
+      const flat: Rubrique[] = [];
+      const flatten = (nodes: Rubrique[]) => {
+        nodes.forEach(node => {
+          if (node) {
+            flat.push(node);
+            if (node.enfants) flatten(node.enfants);
+          }
+        });
+      };
+      flatten(tree);
+      setFlatRubriques(flat);
+    } catch (e) { 
+      console.error("❌ Erreur chargement rubriques", e);
     } finally { 
-        setIsRubriqueLoading(false); 
+      setIsRubriqueLoading(false); 
     }
   };
 
   const handleCreateRubrique = async () => {
-      if(!newName.trim()) return;
-      setIsRubriqueLoading(true);
-      try {
-          const res = await ArticleService.createRubrique(newName);
-          if(res && res.id) {
-            props.setRubriqueId(res.id);
-            setNewName("");
-            setIsCreating(false);
-            setIsDropdownOpen(false);
-            loadRubriques();
-          }
-      } catch(e) { alert("Erreur création"); }
-      finally { setIsRubriqueLoading(false); }
-  }
+    if (!newName.trim()) return;
+    setIsRubriqueLoading(true);
+    try {
+      const res = await ArticleService.createRubrique(newName);
+      if (res && res.id) {
+        props.setRubriqueId(res.id);
+        setNewName("");
+        setIsCreating(false);
+        setIsDropdownOpen(false);
+        loadRubriques();
+      }
+    } catch (e) { 
+      alert("Erreur lors de la création de la rubrique."); 
+    } finally { 
+      setIsRubriqueLoading(false); 
+    }
+  };
 
-  // --- LOGIQUE UPLOAD QUI REMONTE LES DEUX (ID et URL) ---
+  // === UPLOAD MÉDIA (CORRIGÉ) ===
   const handleCoverUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // Validation
+    if (!file.type.startsWith("image/")) {
+      setUploadError("Le fichier doit être une image (JPG, PNG, WEBP).");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setUploadError("L'image est trop lourde (Max 5MB).");
+      return;
+    }
+
     setIsUploading(true);
     setUploadError(null);
-
+    
     try {
-        // Le service retourne { id: "uuid-ou-int", urlAcces: "..." }
-        const response = await ArticleService.uploadMedia(file);
-        
-        console.log("📸 UPLOAD SUCCESS in Settings:", response);
+      const media = await ArticleService.uploadMedia(file);
+      
+      // CORRECTION: Conversion stricte en number
+      let validId: number | null = null;
+      
+      if (media.id) {
+        if (typeof media.id === 'string') {
+          const parsed = parseInt(media.id, 10);
+          if (!isNaN(parsed)) {
+            validId = parsed;
+          }
+        } else if (typeof media.id === 'number') {
+          validId = media.id;
+        }
+      }
 
-        // Stocker pour prévisu
-        props.setCoverImageUrl(response.urlAcces);
-        // Stocker l'ID (peu importe le type)
-        props.setCoverImageId(response.id); 
+      console.log("✅ Upload réussi:", { 
+        url: media.urlAcces, 
+        id: validId,
+        originalId: media.id 
+      });
+
+      props.setCoverImageUrl(media.urlAcces); 
+      props.setCoverImageId(validId);
 
     } catch (err: any) {
-        setUploadError("Échec upload.");
-        console.error(err);
+      console.error("❌ Upload error:", err);
+      setUploadError(err.message || "Échec de l'envoi vers le serveur.");
     } finally {
-        setIsUploading(false);
+      setIsUploading(false);
     }
   };
 
+  const handleRemoveCover = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    props.setCoverImageUrl(null);
+    props.setCoverImageId(null);
+  };
+
+  // HELPERS
   const filteredRubriques = flatRubriques.filter(r => 
     (r.nom || "").toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -130,155 +163,308 @@ export default function ArticleSettings(props: ArticleSettingsProps) {
   const currentRubriqueName = flatRubriques.find(r => r.id === props.rubriqueId)?.nom || "Sélectionner une rubrique";
 
   return (
-    <div className="space-y-6 pb-20 animate-in fade-in duration-500">
+    <div className="space-y-6 pb-24 animate-in fade-in sticky top-24">
+      
+      {/* === SECTION 1: ESSENTIELS === */}
+      <div className="bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-xl p-5 shadow-sm space-y-4">
         
-        {/* TITRE & DESC */}
-        <div className="bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 rounded-xl p-5 shadow-sm space-y-4">
-            <div>
-                <label className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-2 block">Titre</label>
-                <input 
-                    type="text" 
-                    value={props.titre}
-                    onChange={e => props.setTitre(e.target.value)}
-                    className="w-full p-2.5 rounded border border-gray-200 dark:border-zinc-700 bg-transparent text-sm font-bold dark:text-white focus:ring-1 focus:ring-green-600 outline-none"
-                    placeholder="Titre principal..."
-                />
-            </div>
-            <div>
-                <label className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-2 block">Résumé</label>
-                <textarea 
-                    rows={3} 
-                    value={props.description}
-                    onChange={e => props.setDescription(e.target.value)}
-                    className="w-full p-2.5 rounded border border-gray-200 dark:border-zinc-700 bg-transparent text-sm dark:text-white focus:ring-1 focus:ring-green-600 outline-none resize-none"
-                    placeholder="Accroche pour le lecteur..."
-                />
-            </div>
+        {/* Titre */}
+        <div>
+          <label className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-2 flex justify-between">
+            Titre Principal 
+            <span className={cn(
+              "font-mono",
+              props.titre.length < 10 ? "text-red-500" :
+              props.titre.length > 150 ? "text-orange-500" : "text-green-500"
+            )}>
+              {props.titre.length} / 200
+            </span>
+          </label>
+          <input 
+            type="text" 
+            value={props.titre}
+            onChange={e => props.setTitre(e.target.value)}
+            className="w-full p-3 rounded-lg border border-gray-200 dark:border-zinc-700 bg-transparent text-sm font-bold text-gray-900 dark:text-white focus:ring-2 focus:ring-[#3E7B52]/20 focus:border-[#3E7B52] outline-none transition-all placeholder:text-gray-300"
+            placeholder="Titre de l'article (min 10 caractères)..."
+          />
+          {props.titre.length > 0 && props.titre.length < 10 && (
+            <p className="text-xs text-red-500 mt-1">Minimum 10 caractères requis</p>
+          )}
+        </div>
+        
+        {/* Description */}
+        <div>
+          <label className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-2 flex justify-between">
+            Résumé (Chapeau)
+            <span className={cn(
+              "font-mono",
+              props.description.length < 50 ? "text-red-500" :
+              props.description.length > 450 ? "text-orange-500" : "text-green-500"
+            )}>
+              {props.description.length} / 500
+            </span>
+          </label>
+          <textarea 
+            rows={4} 
+            value={props.description}
+            onChange={e => props.setDescription(e.target.value)}
+            className="w-full p-3 rounded-lg border border-gray-200 dark:border-zinc-700 bg-transparent text-xs leading-relaxed dark:text-gray-300 focus:ring-2 focus:ring-[#3E7B52]/20 focus:border-[#3E7B52] outline-none resize-none placeholder:text-gray-300"
+            placeholder="Ce résumé servira pour le référencement (min 50 caractères)..."
+          />
+          {props.description.length > 0 && props.description.length < 50 && (
+            <p className="text-xs text-red-500 mt-1">Minimum 50 caractères requis</p>
+          )}
         </div>
 
-        {/* RUBRIQUE SELECTION */}
-        <div className="bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 rounded-xl p-5 shadow-sm z-20 relative">
-            <div className="flex justify-between items-center mb-2">
-                <label className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Rubrique</label>
-                <button onClick={loadRubriques} type="button"><RefreshCw size={12} className={isRubriqueLoading ? "animate-spin text-green-600" : "text-gray-400"}/></button>
+        {/* Tags auto */}
+        <div className="bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30 rounded-lg p-3">
+          <div className="flex items-start gap-2">
+            <Sparkles size={16} className="text-blue-500 mt-0.5 shrink-0" />
+            <div>
+              <h4 className="text-[10px] font-bold uppercase text-blue-700 dark:text-blue-400">
+                Génération Auto de Tags
+              </h4>
+              <p className="text-[10px] text-blue-600 dark:text-blue-300/80 leading-snug mt-1">
+                L'IA analysera votre contenu pour attribuer les tags pertinents lors de la validation.
+              </p>
             </div>
-
-            <div className="relative">
-                <button 
-                    type="button" 
-                    onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                    className="w-full flex items-center justify-between p-3 border dark:border-zinc-700 rounded text-sm text-left dark:bg-zinc-950 dark:text-white hover:border-gray-400 transition-colors"
-                >
-                    <span className="truncate font-medium">{currentRubriqueName}</span>
-                    <ChevronDown size={14} className="text-gray-400"/>
-                </button>
-
-                {isDropdownOpen && (
-                    <div className="absolute top-full left-0 right-0 bg-white dark:bg-zinc-900 border dark:border-zinc-700 rounded-lg shadow-xl max-h-60 flex flex-col mt-2 z-50 overflow-hidden">
-                        <div className="p-2 border-b dark:border-zinc-700 sticky top-0 bg-white dark:bg-zinc-900">
-                            <div className="flex items-center bg-gray-50 dark:bg-zinc-800 px-2 rounded">
-                                <Search size={14} className="text-gray-400 mr-2"/>
-                                <input 
-                                    className="flex-1 bg-transparent text-xs p-2 outline-none dark:text-white" 
-                                    placeholder="Chercher..." 
-                                    value={searchTerm} 
-                                    onChange={e=>setSearchTerm(e.target.value)}
-                                    autoFocus 
-                                />
-                            </div>
-                        </div>
-                        <div className="overflow-y-auto flex-1 p-1">
-                            {filteredRubriques.map(rub => (
-                                <button 
-                                    key={rub.id}
-                                    type="button"
-                                    onClick={() => { props.setRubriqueId(rub.id); setIsDropdownOpen(false); }}
-                                    className={cn(
-                                        "w-full px-3 py-2 text-xs text-left flex items-center gap-2 rounded transition-colors",
-                                        props.rubriqueId === rub.id ? "bg-green-50 text-green-700 dark:bg-green-900/20" : "hover:bg-gray-100 dark:hover:bg-zinc-800 dark:text-gray-300"
-                                    )}
-                                >
-                                    {rub.parentId && <CornerDownRight size={10} className="text-gray-300 ml-2" />}
-                                    <span className={rub.parentId ? "" : "font-bold uppercase"}>{rub.nom || "Sans nom"}</span>
-                                    {props.rubriqueId === rub.id && <Check size={14} className="ml-auto text-green-600"/>}
-                                </button>
-                            ))}
-                        </div>
-                        <div className="p-2 border-t dark:border-zinc-700 bg-gray-50 dark:bg-zinc-950">
-                           {isCreating ? (
-                               <div className="flex gap-1">
-                                   <input value={newName} onChange={e=>setNewName(e.target.value)} className="text-xs p-1 border rounded flex-1 dark:bg-black dark:text-white" placeholder="Nom..."/>
-                                   <button onClick={handleCreateRubrique}><Check size={14} className="text-green-600"/></button>
-                                   <button onClick={() => setIsCreating(false)}><X size={14} className="text-red-500"/></button>
-                               </div>
-                           ) : (
-                               <button onClick={() => setIsCreating(true)} className="text-xs text-blue-600 font-bold flex items-center justify-center w-full"><Plus size={14} className="mr-1"/> Créer</button>
-                           )}
-                        </div>
-                    </div>
-                )}
-            </div>
-
-            <div className="mt-4">
-                <label className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1.5 block flex items-center gap-1">Région <Globe size={10}/></label>
-                <select 
-                    value={props.region}
-                    onChange={(e) => props.setRegion(e.target.value)}
-                    className="w-full p-2.5 rounded border border-gray-200 dark:border-zinc-700 bg-transparent text-sm dark:text-white outline-none cursor-pointer"
-                >
-                    {REGIONS.map(reg => (
-                        <option key={reg.id} value={reg.id} className="dark:bg-zinc-900">{reg.label}</option>
-                    ))}
-                </select>
-            </div>
+          </div>
         </div>
+      </div>
 
-        {/* IMAGE COVER */}
-        <div className="bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 rounded-xl p-5 shadow-sm">
-             <label className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-3 block">Couverture</label>
-             {uploadError && <div className="mb-2 text-xs text-red-500 flex items-center gap-1"><AlertCircle size={10}/>{uploadError}</div>}
-             
-             <div className={cn(
-                 "relative w-full h-40 border-2 border-dashed border-gray-200 dark:border-zinc-700 rounded-lg overflow-hidden flex flex-col items-center justify-center hover:bg-gray-50 dark:hover:bg-zinc-800/30 transition-colors group cursor-pointer",
-                 props.coverImageUrl && "border-solid border-none"
-             )}>
-                <input 
-                    type="file" 
-                    accept="image/*"
-                    onChange={handleCoverUpload}
-                    className="absolute inset-0 opacity-0 cursor-pointer z-20 w-full h-full"
-                />
+      {/* === SECTION 2: IMAGE COUVERTURE === */}
+      <div className="bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-xl p-5 shadow-sm">
+        <label className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-3 flex items-center justify-between">
+          Image de Couverture
+          {isUploading && (
+            <span className="text-[#3E7B52] flex items-center gap-1">
+              <Loader2 size={10} className="animate-spin" /> Upload...
+            </span>
+          )}
+        </label>
 
-                {isUploading ? (
-                    <Loader2 className="animate-spin text-green-600"/>
-                ) : props.coverImageUrl ? (
-                    <>
-                        <Image 
-                            src={props.coverImageUrl} 
-                            alt="Cover" 
-                            fill 
-                            className="object-cover" 
-                            unoptimized={true} // Obligatoire pour URL Render/Unsplash
-                        />
-                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-xs font-bold transition-opacity z-10 pointer-events-none">
-                            <UploadCloud className="mr-2" size={14}/> Changer
-                        </div>
-                    </>
-                ) : (
-                    <div className="text-center pointer-events-none">
-                        <ImageIcon className="mx-auto text-gray-300 mb-2" size={24} />
-                        <p className="text-xs text-gray-500">Cliquer pour ajouter une image</p>
-                    </div>
-                )}
-             </div>
-             
-             {/* INDICATEUR TECHNIQUE SI ID NON ENTIER */}
-             {typeof props.coverImageId === 'string' && props.coverImageUrl && (
-                <div className="mt-2 px-3 py-1 bg-yellow-50 text-yellow-700 text-[10px] rounded border border-yellow-200">
-                    Info: Cette image utilise un ID alphanumérique. Elle sera intégrée au contenu pour compatibilité.
+        {/* Erreur upload */}
+        {uploadError && (
+          <div className="mb-3 text-xs bg-red-50 text-red-600 p-2 rounded flex items-center gap-2 border border-red-100 animate-in fade-in">
+            <AlertCircle size={12} /> {uploadError}
+          </div>
+        )}
+        
+        <div className={cn(
+          "relative w-full aspect-video border-2 border-dashed rounded-xl overflow-hidden flex flex-col items-center justify-center transition-all group",
+          props.coverImageUrl 
+            ? "border-transparent bg-black" 
+            : "border-gray-200 dark:border-zinc-700 hover:bg-gray-50 dark:hover:bg-zinc-800/50 cursor-pointer"
+        )}>
+          
+          {/* Input file */}
+          <input 
+            type="file" 
+            accept="image/*"
+            onChange={handleCoverUpload}
+            className="absolute inset-0 opacity-0 z-20 cursor-pointer w-full h-full"
+            disabled={isUploading}
+            title={props.coverImageUrl ? "Changer l'image" : "Ajouter une image"}
+          />
+
+          {/* État: CHARGEMENT */}
+          {isUploading ? (
+            <div className="flex flex-col items-center gap-2 text-[#3E7B52] z-10">
+              <Loader2 className="animate-spin" size={32} />
+              <span className="text-xs font-bold animate-pulse">Traitement & Upload...</span>
+            </div>
+
+          ) : props.coverImageUrl ? (
+            /* État: IMAGE PRÉSENTE */
+            <>
+              <Image 
+                src={props.coverImageUrl} 
+                alt="Cover Preview" 
+                fill 
+                className="object-cover transition-opacity duration-300 group-hover:opacity-70" 
+                unoptimized={true} 
+              />
+              
+              {/* Overlay */}
+              <div className="absolute inset-0 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10 pointer-events-none">
+                <div className="bg-black/60 text-white px-3 py-1.5 rounded-full text-xs font-bold flex items-center backdrop-blur-md shadow-lg mb-2">
+                  <UploadCloud size={14} className="mr-2" /> Changer
                 </div>
-             )}
+                <span className="text-[9px] text-white/80 font-mono max-w-[80%] truncate px-2">
+                  ID: {props.coverImageId}
+                </span>
+              </div>
+
+              {/* Bouton Delete */}
+              <button 
+                onClick={handleRemoveCover}
+                className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white p-1.5 rounded-lg z-30 shadow-lg opacity-0 group-hover:opacity-100 transition-all transform scale-90 hover:scale-100"
+                title="Supprimer l'image"
+              >
+                <Trash2 size={14} />
+              </button>
+            </>
+
+          ) : (
+            /* État: VIDE */
+            <div className="text-center pointer-events-none p-4">
+              <div className="bg-gray-100 dark:bg-zinc-800 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3 text-gray-400 group-hover:text-[#3E7B52] group-hover:bg-green-50 transition-colors">
+                <ImageIcon size={20} />
+              </div>
+              <p className="text-xs font-bold text-gray-700 dark:text-gray-300">
+                Cliquer pour uploader
+              </p>
+              <p className="text-[9px] text-gray-400 mt-1">PNG, JPG • Max 5MB</p>
+            </div>
+          )}
         </div>
+      </div>
+
+      {/* === SECTION 3: CIBLAGE === */}
+      <div className="bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-xl p-5 shadow-sm space-y-5 z-20 relative">
+        
+        {/* RUBRIQUE */}
+        <div>
+          <div className="flex justify-between items-center mb-2">
+            <label className="text-[10px] font-bold uppercase tracking-wider text-gray-500">
+              Rubrique / Catégorie
+            </label>
+            <button 
+              onClick={loadRubriques} 
+              type="button" 
+              className="text-gray-400 hover:text-[#3E7B52] transition-colors" 
+              title="Rafraîchir"
+            >
+              <RefreshCw size={12} className={isRubriqueLoading ? "animate-spin" : ""} />
+            </button>
+          </div>
+
+          <div className="relative">
+            <button 
+              type="button" 
+              onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+              className="w-full flex items-center justify-between p-3 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm text-left bg-gray-50 dark:bg-zinc-950 dark:text-white hover:border-[#3E7B52] transition-colors"
+            >
+              <span className="truncate font-bold text-gray-700 dark:text-gray-200">
+                {currentRubriqueName}
+              </span>
+              <ChevronDown 
+                size={14} 
+                className={cn(
+                  "text-gray-400 transition-transform", 
+                  isDropdownOpen && "rotate-180"
+                )} 
+              />
+            </button>
+
+            {/* Dropdown */}
+            {isDropdownOpen && (
+              <div className="absolute top-full left-0 right-0 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-xl shadow-2xl max-h-64 flex flex-col mt-2 z-50 overflow-hidden ring-1 ring-black/5 animate-in fade-in zoom-in-95 duration-200">
+                
+                {/* Filtre */}
+                <div className="p-3 border-b dark:border-zinc-700 bg-gray-50 dark:bg-zinc-950 sticky top-0 z-10">
+                  <div className="flex items-center bg-white dark:bg-zinc-900 border dark:border-zinc-700 px-3 rounded-lg h-9 focus-within:ring-1 focus-within:ring-[#3E7B52]">
+                    <Search size={14} className="text-gray-400 mr-2" />
+                    <input 
+                      className="flex-1 bg-transparent text-xs p-1 outline-none dark:text-white" 
+                      placeholder="Filtrer rubriques..." 
+                      value={searchTerm} 
+                      onChange={e => setSearchTerm(e.target.value)}
+                      autoFocus 
+                    />
+                  </div>
+                </div>
+                
+                {/* Liste */}
+                <div className="overflow-y-auto flex-1 p-1">
+                  {filteredRubriques.map(rub => (
+                    <button 
+                      key={rub.id}
+                      type="button"
+                      onClick={() => { 
+                        props.setRubriqueId(rub.id); 
+                        setIsDropdownOpen(false); 
+                      }}
+                      className={cn(
+                        "w-full px-3 py-2.5 text-xs text-left flex items-center gap-2 rounded-lg transition-all",
+                        props.rubriqueId === rub.id 
+                          ? "bg-green-50 text-[#3E7B52] font-bold dark:bg-green-900/20 dark:text-[#13EC13]" 
+                          : "text-gray-600 hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-zinc-800"
+                      )}
+                    >
+                      {rub.parentId && <CornerDownRight size={10} className="text-gray-300 ml-2" />}
+                      <span className={!rub.parentId ? "uppercase font-extrabold text-[10px]" : ""}>
+                        {rub.nom}
+                      </span>
+                      {props.rubriqueId === rub.id && <Check size={14} className="ml-auto text-[#3E7B52]" />}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Create */}
+                <div className="p-2 border-t dark:border-zinc-700 bg-gray-50 dark:bg-zinc-950">
+                  {isCreating ? (
+                    <div className="flex gap-2 items-center px-1">
+                      <input 
+                        value={newName} 
+                        onChange={e => setNewName(e.target.value)} 
+                        className="text-xs p-2 border rounded-lg flex-1 dark:bg-black dark:text-white focus:border-[#3E7B52] outline-none" 
+                        placeholder="Nouvelle..."
+                      />
+                      <button 
+                        onClick={handleCreateRubrique} 
+                        className="p-2 bg-[#3E7B52] text-white rounded-lg hover:bg-green-700 transition-colors"
+                      >
+                        <Check size={14} />
+                      </button>
+                      <button 
+                        onClick={() => setIsCreating(false)} 
+                        className="p-2 bg-red-100 text-red-500 rounded-lg hover:bg-red-200 transition-colors"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  ) : (
+                    <button 
+                      onClick={() => setIsCreating(true)} 
+                      className="w-full py-2 text-xs text-[#3E7B52] dark:text-[#13EC13] font-bold flex items-center justify-center gap-1.5 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg transition-colors"
+                    >
+                      <Plus size={14} /> Ajouter
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* RÉGION */}
+        <div>
+          <label className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-2 block flex items-center gap-1">
+            <MapPin size={12} className="text-[#3E7B52]" /> Zone Cible
+          </label>
+          <div className="relative">
+            <select 
+              value={props.region}
+              onChange={(e) => props.setRegion(e.target.value)}
+              className="w-full p-3 rounded-lg border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-sm font-medium text-gray-700 dark:text-white outline-none cursor-pointer hover:border-[#3E7B52] focus:ring-2 focus:ring-[#3E7B52]/20 transition-all appearance-none"
+            >
+              {TARGET_REGIONS.map(reg => (
+                <option key={reg.id} value={reg.id}>
+                  {reg.label}
+                </option>
+              ))}
+            </select>
+            <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+            <div className="absolute right-10 top-1/2 -translate-y-1/2">
+              <Globe size={14} className="text-gray-300" />
+            </div>
+          </div>
+          <p className="text-[9px] text-gray-400 mt-2 px-1">
+            * La diffusion de l'article sera prioritaire dans la région sélectionnée.
+          </p>
+        </div>
+      </div>
     </div>
   );
 }

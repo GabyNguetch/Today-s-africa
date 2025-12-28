@@ -14,8 +14,9 @@ import {
 export const APP_CONFIG = {
   name: "TODAY'S AFRICA",
   year: 2025,
-  // Retour au backend Render fonctionnel
-  apiUrl: "https://totayafrica.onrender.com/api/v1", 
+  // ✅ CORRECTION : Utilisation du proxy local Next.js
+  apiUrl: "/api/proxy",
+  mediaBaseUrl: "http://194.163.175.53:8080/api/v1/media/file/",
 };
 // ... le reste du fichier
 

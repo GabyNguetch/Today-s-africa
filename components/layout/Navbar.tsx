@@ -3,16 +3,19 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, Globe, Menu, Search, X } from "lucide-react";
+import { ArrowRight, Globe, Menu, Search, UserIcon, X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { APP_CONFIG } from "@/lib/constant";
 import { PublicService } from "@/services/public";
 import { Rubrique } from "@/types/article";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/context/AuthContext";
 
 export default function Navbar() {
   const [rubriques, setRubriques] = useState<Rubrique[]>([]);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { user } = useAuth(); // Utilisation du contexte Auth
+  const router = useRouter();
   
   // Hook de fetch simple au montage
   useEffect(() => {
@@ -35,6 +38,23 @@ export default function Navbar() {
     fetchMenu();
   }, []);
 
+  // --- 🔥 LOGIQUE DE REDIRECTION INTELLIGENTE ---
+  const handleActionClick = () => {
+      if (user) {
+          // Si Staff (Rédacteur/Admin) -> Dashboard
+          if (['REDACTEUR', 'ADMIN', 'SUPER_ADMIN'].includes(user.role)) {
+              router.push("/dashboard");
+          } else {
+              // Si Utilisateur lambda -> Page Profil Lecteur
+              router.push("/profil");
+          }
+      } else {
+          // Si non connecté -> Login/Register
+          router.push("/login");
+      }
+  };
+
+
   return (
     <>
     <nav className="sticky top-0 z-50 w-full bg-white/80 dark:bg-[#0a0a0a]/80 backdrop-blur-md border-b border-gray-100 dark:border-zinc-800 py-3 px-6 md:px-12 flex items-center justify-between transition-all duration-300">
@@ -50,7 +70,7 @@ export default function Navbar() {
       </Link>
 
       {/* 2. LIENS BUREAU (Desktop) */}
-      <div className="hidden lg:flex items-center gap-8 flex-1 justify-center">
+      <div id="nav-categories" className="hidden lg:flex items-center gap-8 flex-1 justify-center">
         {rubriques.length === 0 ? (
             // Skeleton loader discret
             <div className="flex gap-4 animate-pulse">
@@ -71,34 +91,37 @@ export default function Navbar() {
         )}
       </div>
 
-      {/* 3. ACTIONS DROITE */}
-      <div className="flex items-center gap-3 md:gap-5 shrink-0">
+ {/* 3. ACTIONS */}
+      <div className="flex items-center gap-3 md:gap-4 shrink-0">
         
-        {/* Recherche */}
-        <button className="p-2 text-gray-400 hover:text-black dark:hover:text-white transition-colors">
-            <Search size={20} strokeWidth={2.5} />
-        </button>
-
-        {/* Login Btn */}
-        <Link href="/login" className="hidden sm:block">
-            <Button variant="outline" className="h-10 px-5 text-xs font-extrabold border-gray-200 hover:bg-gray-50 dark:bg-transparent dark:border-zinc-700 dark:text-white dark:hover:bg-zinc-800">
-                CONNEXION
-            </Button>
-        </Link>
+        {/* Affichage conditionnel Bouton Connexion */}
+        {!user && (
+            <Link href="/login" className="hidden sm:block">
+                <Button variant="outline" className="h-9 px-5 text-xs font-bold border-gray-200 dark:border-zinc-700">
+                    CONNEXION
+                </Button>
+            </Link>
+        )}
         
-        {/* Subscribe Btn */}
+        {/* Bouton Intelligent : Profil ou Abonnement */}
         <Button 
-          className="h-10 px-5 bg-[#3E7B52] hover:bg-[#326342] text-white rounded-lg text-xs font-extrabold uppercase tracking-wide shadow-green-200 dark:shadow-none hidden md:flex"
+          id={user ? "btn-action-profile" : "cta-subscribe"} // ✅ ID dynamique
+          onClick={handleActionClick}
+          className="h-9 px-5 bg-[#3E7B52] hover:bg-[#326342] text-white rounded-lg text-xs font-bold uppercase shadow-lg shadow-green-900/20 flex items-center gap-2"
         >
-          Abonnement
+          {user ? (
+            <>
+                <UserIcon size={14} /> 
+                <span className="max-w-[100px] truncate">Mon Profil</span>
+            </>
+          ) : (
+            "S'abonner"
+          )}
         </Button>
         
-        {/* Mobile Toggle */}
-        <button 
-            className="lg:hidden text-black dark:text-white p-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg"
-            onClick={() => setMobileMenuOpen(true)}
-        >
-          <Menu size={26} strokeWidth={2.5} />
+        {/* Menu Mobile Toggle */}
+        <button className="lg:hidden p-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded" onClick={() => setMobileMenuOpen(true)}>
+          <Menu size={24} />
         </button>
       </div>
     </nav>

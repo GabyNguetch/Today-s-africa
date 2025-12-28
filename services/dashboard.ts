@@ -1,15 +1,16 @@
 // FICHIER: services/dashboard.ts
+import { APP_CONFIG } from "@/lib/constant";
 import { authService } from "./auth";
 import { ArticleBackend, PageResponse, StatsDashboard } from "@/types/dashboard";
 
-const API_PROXY = "https://totayafrica.onrender.com/api/v1"; 
+const API_PROXY = APP_CONFIG.apiUrl; 
 
 // --- Endpoints Rédacteur (Nécessite Token) ---
 const ENDPOINT_MY_ARTICLES = `${API_PROXY}/articles`; 
-const ENDPOINT_STATS = `${API_PROXY}/statistiquess`; // Supposé basé sur ton swagger "statistiquess"
+const ENDPOINT_STATS = `${API_PROXY}/statistiques/auteur`; // Supposé basé sur ton swagger "statistiquess"
 
 // --- Endpoints Lecteur (Public) ---
-const ENDPOINT_PUBLIC_FEATURED = `${API_PROXY}/public/articles/featured`;
+const ENDPOINT_PUBLIC_FEATURED = `${API_PROXY}/featureditems`;
 const ENDPOINT_PUBLIC_LIST = `${API_PROXY}/public/articles`;
 const ENDPOINT_PUBLIC_SEARCH = `${API_PROXY}/public/articles`; // Search via query param ?q=
 

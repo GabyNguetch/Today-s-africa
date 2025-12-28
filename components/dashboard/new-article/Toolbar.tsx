@@ -1,7 +1,7 @@
 // FICHIER: components/dashboard/new-article/Toolbar.tsx
 "use client";
 
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import type { Editor } from '@tiptap/react';
 import { 
   Bold, Italic, Strikethrough, Heading1, Heading2, Quote, 
@@ -18,12 +18,13 @@ interface ToolbarProps {
 export default function Toolbar({ editor }: ToolbarProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = React.useState(false);
+  const [uploadSuccess, setUploadSuccess] = useState(false);
 
   if (!editor) return null;
 
-  // -- LOGIQUE INSERTION IMAGE --
+  // -- LOGIQUE AVANCÉE D'INSERTION IMAGE --
   const handleImageClick = () => {
-    fileInputRef.current?.click(); // Déclenche le click sur l'input file caché
+    fileInputRef.current?.click();
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -31,35 +32,53 @@ export default function Toolbar({ editor }: ToolbarProps) {
     if (!file) return;
 
     setIsUploading(true);
+    setUploadSuccess(false);
+
     try {
-        // 1. Upload vers le Backend
+        // 1. Upload vers le Backend -> On récupère ID + URL
         const media = await ArticleService.uploadMedia(file);
         
-        // 2. Insérer dans l'éditeur
-        // On stocke l'ID technique dans un attribut data-media-id (IMPORTANT pour le Parser)
+        console.log("📷 Image uploaded via Editor:", media);
+
+        // 2. Insérer dans l'éditeur avec attributs étendus
+        // NOTE: On utilise setAttribute sur setImage pour persister le mediaId
+        // Si l'extension Tiptap Image de base ne supporte pas d'attributs custom,
+        // nous insérons via 'command' standard et mettons à jour les attributs via le DOM ensuite.
+        
         editor.chain().focus().setImage({ 
             src: media.urlAcces, 
             alt: media.nomOriginal,
-            title: media.nomOriginal, // Peut servir de légende temporaire
+            title: media.nomOriginal // Sert souvent de légende par défaut
         }).run();
 
-        // 2b. AJOUTER l'attribut data-media-id après coup (TipTap trick si setImage ne prend pas tout)
-        // Mais idéalement configure ton Tiptap Image extension pour accepter les attributs custom.
-        // Si ton extension Image ne le permet pas, le parseur utilisera le SRC comme fallback.
-        // Une astuce est de mettre l'ID dans le 'title' ou 'alt' si tu n'as pas customisé Tiptap.
-        // Ici on va faire une astuce JS simple sur le noeud DOM dans EditorContent ou ici via commande attr
-        
-        // Commande spécifique si Extension configurée (optionnel)
-        const domImages = document.querySelectorAll(`img[src="${media.urlAcces}"]`);
-        domImages.forEach(img => img.setAttribute('data-media-id', String(media.id)));
+        // 3. Hack propre: On attache le mediaId à la dernière image insérée (ou celle ayant cet URL)
+        // Ceci est vital pour le parsing plus tard dans NewArticle.tsx
+        // Nous le faisons via un petit délai pour laisser Tiptap rendre le node.
+        setTimeout(() => {
+            const images = document.querySelectorAll(`img[src="${media.urlAcces}"]`);
+            images.forEach(img => {
+                img.setAttribute('data-media-id', String(media.id));
+                img.classList.add("article-content-image"); // Classe CSS pour styling
+            });
+        }, 100);
+
+        setUploadSuccess(true);
+        setTimeout(() => setUploadSuccess(false), 2000);
 
     } catch (err) {
-        alert("Erreur upload image contenu");
+        alert("Erreur upload image contenu. Vérifiez format/taille.");
         console.error(err);
     } finally {
         setIsUploading(false);
-        // Reset input
         if(fileInputRef.current) fileInputRef.current.value = ""; 
+    }
+  };
+
+  const addYoutube = () => {
+    const url = prompt('Entrez l\'URL YouTube');
+    if (url) {
+      editor.commands.setContent(`${editor.getHTML()}<p>URL Vidéo: ${url}</p>`); 
+      // Note: Idéalement utilisez @tiptap/extension-youtube
     }
   };
 
@@ -122,12 +141,7 @@ export default function Toolbar({ editor }: ToolbarProps) {
         label: "Image",
         specialClass: "text-[#3E7B52] dark:text-[#13EC13] hover:bg-green-50 dark:hover:bg-green-900/20"
     },
-    {
-        icon: Video, // Placeholder Video (même logique à implémenter si besoin)
-        action: () => alert("Support Vidéo à venir dans cette démo"),
-        isActive: false,
-        label: "Video"
-    },
+    { icon: Video, action: addYoutube, isActive: false, label: "Vidéo Youtube" },
     { divider: true },
     { icon: Undo, action: () => editor.chain().focus().undo().run(), label: "Undo" },
     { icon: Redo, action: () => editor.chain().focus().redo().run(), label: "Redo" },

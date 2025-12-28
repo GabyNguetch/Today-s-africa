@@ -25,6 +25,7 @@ export default function Overview() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {statsData.map((stat) => (
           <div 
+            id={stat.icon === Eye ? "dashboard-stats-card" : undefined} 
             key={stat.label} 
             className="bg-white dark:bg-zinc-900 p-6 rounded-xl border border-gray-100 dark:border-zinc-800 shadow-sm flex items-start justify-between group hover:border-[#3E7B52]/30 dark:hover:border-[#13EC13]/30 transition-all"
           >

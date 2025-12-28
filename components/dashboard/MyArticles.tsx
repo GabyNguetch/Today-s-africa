@@ -35,11 +35,14 @@ export default function MyArticles({ onEdit }: MyArticlesProps) {
     setArticles([]);
 
     try {
-        let data: any = [];
+        let data: ArticleReadDto[] = [];
         
         // Logique Swagger spécifique par Onglet
         if (activeTab === 'BROUILLONS') {
+                        // ✅ APPEL DE LA BONNE ROUTE
+            console.log("📂 Récupération des brouillons pour l'auteur", user.id);
             data = await ArticleService.getRedacteurBrouillons(user.id);
+
         } else if (activeTab === 'PUBLIES') {
             data = await ArticleService.getRedacteurPublies(user.id);
         } else {
@@ -52,8 +55,8 @@ export default function MyArticles({ onEdit }: MyArticlesProps) {
             );
         }
 
-        // Sécurisation Array
-        const cleanList = Array.isArray(data) ? data : (data.content || []);
+                // Sécurisation Array (Correction de l'erreur TypeScript ici)
+        const cleanList = Array.isArray(data) ? data : ((data as any).content || []);
         
         // On type explicitement 'a' et 'b'
         cleanList.sort((a: ArticleReadDto, b: ArticleReadDto) => new Date(b.dateCreation).getTime() - new Date(a.dateCreation).getTime());

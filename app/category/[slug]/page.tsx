@@ -153,7 +153,7 @@ export default function CategoryPage({ params }: PageProps) {
                         
                         {/* DESCRIPTION */}
                         <p className="text-gray-600 dark:text-zinc-400 text-lg max-w-3xl leading-relaxed animate-in fade-in slide-in-from-bottom-3 duration-700 delay-100">
-                            {currentRubrique?.nom || `Toute l'actualité et les dossiers spéciaux concernant la rubrique ${currentRubrique?.nom}.`}
+                            {`Toute l'actualité et les dossiers spéciaux concernant la rubrique ${currentRubrique?.nom}.`}
                         </p>
                     </div>
                 )}

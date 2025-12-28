@@ -12,6 +12,7 @@ import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import { PublicService } from "@/services/public";
 import { ArticleReadDto, Rubrique } from "@/types/article";
+import { OnboardingTour } from "@/components/ui/OnBoardingTour";
 
 // --- COMPOSANT SKELETON CARD (Interne) ---
 const SkeletonCard = () => (
@@ -38,7 +39,7 @@ type SectionData = {
 
 export default function Home() {
   
-  const [featuredArticles, setFeaturedArticles] = useState<ArticleReadDto[]>([]);
+  const [heroArticles, setHeroArticles] = useState<ArticleReadDto[]>([]); // Trending
   const [latestArticles, setLatestArticles] = useState<ArticleReadDto[]>([]);
   const [sections, setSections] = useState<SectionData[]>([]);
   
@@ -50,26 +51,29 @@ export default function Home() {
     const initData = async () => {
         setLoading(true);
         try {
-            console.log("📥 [HOME] Chargement données...");
+            console.log("📥 [HOME] Chargement données API Public...");
 
-            const [feat, latest, allRubriques] = await Promise.all([
-                PublicService.getFeaturedArticles(),
+            // 1. Appel en parallèle pour Trending (Hero) + Latest (Flux) + Menu (Sections)
+            const [trendingData, feedData, allRubriques] = await Promise.all([
+                PublicService.getTrendingArticles(),
                 PublicService.getAllArticles(0, 6),
                 PublicService.getRubriques()
             ]);
 
-            setFeaturedArticles(feat);
-            // Ici, latest est bien protégé par le fix dans le service (tableau ou objet paginé)
-            setLatestArticles(latest.content || []);
+            setHeroArticles(trendingData);
+            setLatestArticles(feedData.content || []); // Paginé -> content
 
-            // Logique Rubriques (Racines seulement)
-            const roots = allRubriques.filter(r => r.parentId === null).slice(0, 3);
+            // 2. Logique Sections dynamiques (Récupérer les rubriques Racines)
+            // On filtre uniquement les catégories principales (niveau 0)
+            const rootCategories = allRubriques.filter(r => r.parentId === null).slice(0, 3);
             
-            const sectionsPromises = roots.map(async (rub) => {
+            // 3. Charger les articles pour ces 3 sections spécifiques
+            const sectionsPromises = rootCategories.map(async (rub) => {
+                // Route spécifique rubrique /{id}/articles
                 const arts = await PublicService.getArticlesByRubrique(rub.id);
                 // On garde la section seulement si elle a du contenu
                 if(arts && arts.length > 0) {
-                    return { rubrique: rub, articles: arts.slice(0, 5) };
+                    return { rubrique: rub, articles: arts.slice(0, 5) }; // Limit 5
                 }
                 return null;
             });
@@ -78,7 +82,7 @@ export default function Home() {
             setSections(loadedSections);
 
         } catch(e) {
-            console.error("❌ Erreur Home:", e);
+            console.error("❌ Erreur chargement Home:", e);
         } finally {
             setLoading(false);
         }
@@ -86,9 +90,8 @@ export default function Home() {
     initData();
   }, []);
 
-  // Hero Logic (Statique ou Premier featured)
-  const heroArticle = featuredArticles.length > 0 ? featuredArticles[0] : latestArticles[0];
-
+  // Le Hero prend le premier article "Tendance", ou le plus récent si pas de tendance
+  const heroArticle = heroArticles.length > 0 ? heroArticles[0] : latestArticles[0];
   return (
     <div className="min-h-screen bg-white dark:bg-black font-sans selection:bg-[#3E7B52] selection:text-white flex flex-col">
       <Navbar />
@@ -126,7 +129,7 @@ export default function Home() {
             <div className="flex-1 w-full flex justify-end relative">
                 <div className="relative w-full aspect-video md:aspect-[16/10] lg:h-[450px] rounded-2xl overflow-hidden shadow-2xl shadow-black/20 group border-4 border-white dark:border-zinc-800/50">
                     <Image 
-                        src={heroArticle?.imageCouvertureUrl || "/images/im1.avif"} 
+                        src={heroArticle?.imageCouvertureUrl || "/images/image1.png"} 
                         alt="Vision de l'Afrique"
                         fill
                         priority
@@ -143,38 +146,6 @@ export default function Home() {
             2. LE MILIEU (AFFECTÉ PAR LE LOADING - SKELETONS)
            ================================================================ */}
         
-        {/* --- ACTUALITÉS RÉCENTES --- */}
-        <section>
-            <div className="flex items-end justify-between mb-8 border-b border-gray-100 dark:border-zinc-800 pb-4">
-                <h2 className="text-2xl md:text-3xl font-extrabold text-[#111] dark:text-white tracking-tight flex items-center gap-3">
-                    <span className="w-1.5 h-8 bg-[#13EC13] rounded-full inline-block"></span>
-                    Actualités récentes
-                </h2>
-                <Link href="/category/tous" className="text-sm font-semibold text-gray-500 hover:text-black dark:text-gray-400 dark:hover:text-white flex items-center gap-1">
-                    Tout voir <ArrowRight size={16}/>
-                </Link>
-            </div>
-            
-            {loading ? (
-                // MODE CHARGEMENT : Affichage de 6 Skeletons
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {[1, 2, 3, 4, 5, 6].map((i) => <SkeletonCard key={i} />)}
-                </div>
-            ) : (
-                // MODE DONNÉES REÇUES
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {latestArticles.length > 0 ? (
-                        latestArticles.map((article) => (
-                            <ArticleCard key={article.id} article={article} />
-                        ))
-                    ) : (
-                        <div className="col-span-3 text-center py-10 text-gray-400 border border-dashed rounded-lg">
-                            Aucune actualité récente trouvée.
-                        </div>
-                    )}
-                </div>
-            )}
-        </section>
 
         {/* --- AUTRES SECTIONS (RUBRIQUES) --- */}
         {loading ? (
@@ -213,7 +184,7 @@ export default function Home() {
                         </Link>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                         {section.articles.map((art, idx) => (
                             <div 
                                 key={art.id} 
@@ -264,6 +235,8 @@ export default function Home() {
       </main>
       
       <Footer />
+     <OnboardingTour /> 
     </div>
+
   );
 }

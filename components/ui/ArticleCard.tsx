@@ -1,12 +1,12 @@
 "use client";
 
-import React from "react";
+import React, { useMemo } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { ArticleReadDto } from "@/types/article";
-import { Clock, User } from "lucide-react";
-import { format } from "date-fns";
+import { Clock, User, Eye, MessageCircle, Share2, Heart } from "lucide-react";
+import { format, isValid } from "date-fns";
 import { fr } from "date-fns/locale";
 
 interface ArticleCardProps {
@@ -15,70 +15,113 @@ interface ArticleCardProps {
   imageHeight?: string; 
 }
 
+// Helper pour formater les gros chiffres (ex: 1200 -> 1.2k)
+const compactNumber = (num?: number) => {
+  if (num === undefined || num === null) return 0;
+  return new Intl.NumberFormat("en-US", {
+    notation: "compact",
+    maximumFractionDigits: 1,
+  }).format(num);
+};
+
 export default function ArticleCard({ article, className, imageHeight = "h-48" }: ArticleCardProps) {
   
-  // --- 1. SÉCURISATION MAXIMALE DE LA RÉCUPÉRATION D'IMAGE ---
-  const getCoverImage = () => {
-    // A. Si l'image de couverture explicite existe, on la prend
+  // 1. Logique d'image optimisée
+  const imageUrl = useMemo(() => {
     if (article.imageCouvertureUrl) return article.imageCouvertureUrl;
 
-    // B. Sinon on cherche la première image dans les blocs de contenu
-    // 🔥 CORRECTIF ICI : on vérifie que blocsContenu existe bien (Array.isArray) avant le find
-    const blocs = Array.isArray(article.blocsContenu) ? article.blocsContenu : [];
-    
-    const firstImg = blocs.find(b => b.type === 'IMAGE');
-    if (firstImg) return firstImg.contenu || firstImg.url || "";
+    if (Array.isArray(article.blocsContenu)) {
+        const firstImg = article.blocsContenu.find(b => b.type === 'IMAGE' && (b.url || b.contenu));
+        if (firstImg) return firstImg.url || firstImg.contenu;
+    }
+    return "/images/image4.jpeg"; 
+  }, [article.imageCouvertureUrl, article.blocsContenu]);
 
-    // C. Fallback par défaut si aucune image trouvée
-    return "https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=800";
-  };
+  // 2. Formatage de date sécurisé
+  const formattedDate = useMemo(() => {
+      if (!article.datePublication) return "Récemment";
+      const dateObj = new Date(article.datePublication);
+      return isValid(dateObj) 
+        ? format(dateObj, 'dd MMM yyyy', { locale: fr }) 
+        : "Date inconnue";
+  }, [article.datePublication]);
 
   return (
     <Link 
       href={`/article/${article.id}`} 
       className={cn(
-        "group flex flex-col h-full bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 rounded-xl overflow-hidden shadow-sm hover:shadow-lg dark:hover:border-zinc-700 transition-all duration-300", 
+        "group flex flex-col h-full bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 rounded-xl overflow-hidden shadow-sm transition-all duration-300", 
+        "hover:shadow-lg hover:-translate-y-1 hover:border-gray-200 dark:hover:border-[#13EC13]/30",
         className
       )}
     >
-      <div className={cn("relative w-full bg-gray-200 dark:bg-zinc-800 overflow-hidden", imageHeight)}>
+      {/* --- ZONE IMAGE --- */}
+      <div className={cn("relative w-full bg-gray-200 dark:bg-zinc-800 overflow-hidden shrink-0", imageHeight)}>
         <Image 
-          src={getCoverImage()} 
-          alt={article.titre || "Article sans titre"}
+          src={imageUrl} 
+          alt={article.titre || "Image de l'article"}
           fill
-          className="object-cover group-hover:scale-105 transition-transform duration-500"
-          // Utilise le mode non-optimisé si c'est une image externe ou malformée
-          unoptimized={true}
+          className="object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
+          unoptimized={true} 
         />
+        
+        <div className="absolute top-3 left-3 z-10">
+             <span className="bg-white/95 dark:bg-black/90 backdrop-blur-md px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-widest text-[#3E7B52] dark:text-[#13EC13] border border-gray-100 dark:border-zinc-800 shadow-sm">
+                {article.rubriqueNom || "Actualité"}
+             </span>
+        </div>
       </div>
       
+      {/* --- ZONE CONTENU --- */}
       <div className="p-5 flex flex-col flex-1 gap-3">
-        {/* Catégorie */}
-        <span className="text-[10px] font-bold uppercase tracking-wider text-[#3E7B52] dark:text-[#13EC13] bg-green-50 dark:bg-[#13EC13]/10 w-fit px-2 py-0.5 rounded">
-          {article.rubriqueNom || "Actualité"}
-        </span>
-        
         {/* Titre */}
-        <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 leading-tight line-clamp-3 group-hover:text-[#3E7B52] dark:group-hover:text-[#13EC13] transition-colors">
-          {article.titre}
+        <h3 className="text-lg font-bold text-gray-900 dark:text-white leading-snug line-clamp-2 group-hover:text-[#3E7B52] dark:group-hover:text-[#13EC13] transition-colors" title={article.titre}>
+          {article.titre || "Sans titre"}
         </h3>
         
-        {/* Résumé */}
-        <p className="text-xs text-gray-500 dark:text-zinc-400 line-clamp-2 leading-relaxed flex-1">
-          {article.description || "Cliquez pour lire la suite de cet article..."}
+        {/* Extrait */}
+        <p className="text-xs text-gray-500 dark:text-zinc-400 line-clamp-2 leading-relaxed">
+          {article.description || "Cliquez pour découvrir cet article..."}
         </p>
         
-        {/* Footer Card */}
-        <div className="pt-3 mt-auto border-t border-gray-50 dark:border-zinc-800 flex items-center justify-between text-gray-400">
-          <span className="text-[10px] font-semibold uppercase flex items-center gap-1">
-            <User size={12}/>
-            <span className="truncate max-w-[80px]">{article.auteurNom || "Rédaction"}</span>
-          </span>
-          <span className="text-[10px] flex items-center gap-1">
-            <Clock size={12} />
-            {article.datePublication 
-                ? format(new Date(article.datePublication), 'dd MMM yyyy', { locale: fr })
-                : "Récemment"}
+        {/* --- STATS ROW (Nouveau Bloc) --- */}
+        {/* On pousse ce bloc vers le bas grâce à 'mt-auto' pour aligner toutes les cartes */}
+        <div className="flex items-center gap-4 mt-auto py-2 text-xs font-medium text-gray-400 dark:text-zinc-500">
+             <div className="flex items-center gap-1" title="Vues">
+                 <Eye size={14} className="group-hover:text-[#3E7B52] dark:group-hover:text-[#13EC13] transition-colors"/>
+                 <span>{compactNumber(article.vues)}</span>
+             </div>
+             <div className="flex items-center gap-1" title="Commentaires">
+                 <MessageCircle size={14} className="group-hover:text-blue-500 transition-colors"/>
+                 <span>{compactNumber(article.commentaires)}</span>
+             </div>
+             <div className="flex items-center gap-1" title="Partages">
+                 <Share2 size={14} className="group-hover:text-indigo-500 transition-colors"/>
+                 <span>{compactNumber(article.partages)}</span>
+             </div>
+             {/* Note: 'favoris' n'étant pas dans ArticleReadDto par défaut, j'utilise un champ fictif ou partages ici, 
+                 ajustez si votre backend renvoie bien 'favoris' ou 'likes' */}
+             {/* <div className="flex items-center gap-1 ml-auto" title="Likes">
+                 <Heart size={14} className="group-hover:text-red-500 transition-colors"/>
+                 <span>{compactNumber(article.telechargements)}</span> 
+             </div> */}
+        </div>
+
+        {/* Footer Card (Divider + Auteur + Date) */}
+        <div className="pt-3 border-t border-gray-100 dark:border-zinc-800 flex items-center justify-between text-gray-400">
+          
+          <div className="flex items-center gap-2 max-w-[65%]">
+            <span className="p-1 rounded-full bg-gray-50 dark:bg-zinc-800 text-[#3E7B52] dark:text-[#13EC13]">
+               <User size={10}/>
+            </span>
+            <span className="text-[10px] font-semibold uppercase truncate text-gray-500 dark:text-zinc-400 group-hover:text-gray-800 dark:group-hover:text-zinc-200 transition-colors">
+                {article.auteurNom || "Rédaction"}
+            </span>
+          </div>
+
+          <span className="text-[10px] font-medium flex items-center gap-1.5 whitespace-nowrap bg-gray-50 dark:bg-zinc-800/50 px-2 py-1 rounded text-gray-500 dark:text-zinc-500">
+            <Clock size={10} />
+            {formattedDate}
           </span>
         </div>
       </div>

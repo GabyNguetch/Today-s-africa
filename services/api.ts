@@ -1,28 +1,24 @@
-// services/api.ts
 import axios from 'axios';
+import { APP_CONFIG } from "@/lib/constant"; // Import de la config unifiée
 
-// L'URL de base de votre API déployée sur Render (fonctionnel)
-const API_BASE_URL = 'https://totayafrica.onrender.com/api/v1';
-
+// ✅ Utilise l'URL relative configurée (/api/proxy)
 const api = axios.create({
-  baseURL: API_BASE_URL,
+  baseURL: APP_CONFIG.apiUrl,
 });
 
-// Intercepteur pour ajouter le token JWT à chaque requête
 api.interceptors.request.use(
   (config) => {
-    // S'assure que le code ne s'exécute que côté client
+    // Note: Stockage token cohérent avec services/auth.ts
+    // Assure-toi que la clé est bien 'tody_jwt_token' partout (auth.ts utilise cette clé)
     if (typeof window !== 'undefined') {
-      const token = localStorage.getItem('tody_token'); // Nous allons stocker le token ici
+      const token = localStorage.getItem('tody_jwt_token'); 
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
       }
     }
     return config;
   },
-  (error) => {
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(error)
 );
 
 export default api;

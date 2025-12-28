@@ -19,6 +19,7 @@ import AdminArticles from "@/components/dashboard/AdminArticles";
 import Settings from "@/components/dashboard/Settings";
 import CreateRedacteur from "@/components/dashboard/CreateRedacteur";
 import AdminRedacteurs from "@/components/dashboard/AdminRedacteur";
+import { OnboardingTour } from "@/components/ui/OnBoardingTour";
 
 type TabType = "overview" | "new-article" | "articles" | "manage-redacteurs" | "create-redacteur" | "settings";
 
@@ -121,6 +122,9 @@ export default function DashboardPage() {
             {menuItems.map((item) => (
                 <button
                     key={item.id}
+                    id={item.id === "new-article" ? "nav-dashboard-new-article" 
+                        : item.id === "articles" ? "nav-dashboard-articles" 
+                        : item.id === "manage-redacteurs" ? "nav-dashboard-users" : undefined}
                     onClick={() => { setActiveTab(item.id as TabType); setEditingId(null); }}
                     className={cn(
                         "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wide transition-all group relative",
@@ -210,6 +214,7 @@ export default function DashboardPage() {
                 {renderContent()}
             </div>
          </main>
+         <OnboardingTour />
       </div>
 
     </div>
