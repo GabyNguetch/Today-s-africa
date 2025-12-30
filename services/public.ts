@@ -240,7 +240,7 @@ export const PublicService = {
   // === ARTICLES ADMIN ===
   getAdminArticles: async (page = 0, size = 10): Promise<PageResponse<ArticleReadDto>> => {
     try {
-      const res = await fetch(`${API_PROXY}/articles/admin?page=${page}&size=${size}&sort=datePublication,desc`, { cache: 'no-store' });
+      const res = await fetch(`${API_PROXY}/articles/by-admin?page=${page}&size=${size}&sort=datePublication,desc`, { cache: 'no-store' });
       if (!res.ok) throw new Error(`Erreur ${res.status}`);
       
       const data = await res.json();
