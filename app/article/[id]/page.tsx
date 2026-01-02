@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { format, isValid } from "date-fns";
 import { fr } from "date-fns/locale";
-import { cn } from "@/lib/utils";
+import { cn, getImageUrl } from "@/lib/utils";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import { Button } from "@/components/ui/Button";
@@ -320,7 +320,7 @@ export default function ArticlePage({ params }: PageProps) {
                      <figure className="mb-12 group cursor-zoom-in">
                          <div className="relative w-full aspect-[16/10] rounded-xl overflow-hidden shadow-sm border border-gray-100 dark:border-zinc-800 bg-gray-50">
                              <Image 
-                                 src={article.imageCouvertureUrl} 
+                                 src={getImageUrl(article.imageCouvertureUrl)} 
                                  alt={article.titre} 
                                  fill className="object-cover transition-transform duration-700 group-hover:scale-105" 
                                  unoptimized priority
@@ -463,7 +463,7 @@ function ContentBlock({ bloc }: { bloc: any }) {
             return (
                 <figure className="my-10 w-full group">
                     <div className="relative w-full aspect-[16/9] md:aspect-[2/1] rounded-lg overflow-hidden shadow-md bg-gray-100 dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800">
-                         <Image src={bloc.url || bloc.contenu} alt={bloc.altText || "Illustration"} fill className="object-cover" unoptimized/>
+                         <Image src={getImageUrl(bloc.url || bloc.contenu)} alt={bloc.altText || "Illustration"} fill className="object-cover" unoptimized/>
                     </div>
                     {bloc.legende && <figcaption className="mt-3 text-xs text-gray-500 dark:text-zinc-500 font-mono tracking-wide text-center">▲ {bloc.legende}</figcaption>}
                 </figure>

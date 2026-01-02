@@ -3,7 +3,7 @@
 import React, { useMemo } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { cn } from "@/lib/utils";
+import { cn, getImageUrl } from "@/lib/utils";
 import { ArticleReadDto } from "@/types/article";
 import { Clock, User, Eye, MessageCircle, Share2, Heart } from "lucide-react";
 import { format, isValid } from "date-fns";
@@ -26,15 +26,23 @@ const compactNumber = (num?: number) => {
 
 export default function ArticleCard({ article, className, imageHeight = "h-48" }: ArticleCardProps) {
   
-  // 1. Logique d'image optimisée
+  // 1. Logique d'image optimisée avec la nouvelle fonction utilitaire
   const imageUrl = useMemo(() => {
-    if (article.imageCouvertureUrl) return article.imageCouvertureUrl;
+    // Priorité 1: Image de couverture
+    if (article.imageCouvertureUrl) {
+      return getImageUrl(article.imageCouvertureUrl);
+    }
 
+    // Priorité 2: Première image dans les blocs de contenu
     if (Array.isArray(article.blocsContenu)) {
         const firstImg = article.blocsContenu.find(b => b.type === 'IMAGE' && (b.url || b.contenu));
-        if (firstImg) return firstImg.url || firstImg.contenu;
+        if (firstImg) {
+          return getImageUrl(firstImg.url || firstImg.contenu);
+        }
     }
-    return "/images/image4.jpeg"; 
+    
+    // Fallback: Image par défaut
+    return getImageUrl(null);
   }, [article.imageCouvertureUrl, article.blocsContenu]);
 
   // 2. Formatage de date sécurisé

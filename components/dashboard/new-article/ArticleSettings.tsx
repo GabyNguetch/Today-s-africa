@@ -9,7 +9,7 @@ import {
   ChevronDown, Check, Search, X, RefreshCw, 
   CornerDownRight, Globe, MapPin, Sparkles, Trash2
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, getImageUrl } from "@/lib/utils";
 import { ArticleService } from "@/services/article";
 import { Rubrique } from "@/types/article";
 
@@ -138,7 +138,8 @@ export default function ArticleSettings(props: ArticleSettingsProps) {
         originalId: media.id 
       });
 
-      props.setCoverImageUrl(media.urlAcces); 
+      const fullImageUrl = getImageUrl(media.urlAcces);
+      props.setCoverImageUrl(fullImageUrl); 
       props.setCoverImageId(validId);
 
     } catch (err: any) {

@@ -7,6 +7,7 @@ import { Save, Loader2, Send, ArrowLeft, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/Button'; 
 import { ArticleService } from '@/services/article';
 import { useAuth } from '@/context/AuthContext';
+import { cn, getImageUrl } from '@/lib/utils';
 import ArticleSettings from './new-article/ArticleSettings';
 import Toolbar from './new-article/Toolbar';
 import EditorContentComp from './new-article/EditorContent';
@@ -50,7 +51,7 @@ export default function NewArticle({ onSuccess, editArticleId, onCancel }: NewAr
           setDescription(article.description || "");
           setRubriqueId(article.rubriqueId || null);
           setRegion(article.region || "GLOBAL");
-          setCoverImageUrl(article.imageCouvertureUrl || null);
+          setCoverImageUrl(getImageUrl(article.imageCouvertureUrl) || null);
           setCoverImageId(article.imageCouvertureId || null);
 
           // Reconstruction HTML
@@ -61,7 +62,7 @@ export default function NewArticle({ onSuccess, editArticleId, onCancel }: NewAr
             sorted.forEach(bloc => {
               if (bloc.type === 'IMAGE') {
                 const dataId = bloc.mediaId ? `data-media-id="${bloc.mediaId}"` : "";
-                const imgSrc = bloc.url || bloc.contenu || "";
+                const imgSrc = getImageUrl(bloc.url || bloc.contenu || "");
                 contentHtml += `<img src="${imgSrc}" alt="${bloc.altText || ''}" title="${bloc.legende || ''}" ${dataId} />`;
               } else if (bloc.type === 'CITATION') {
                 contentHtml += `<blockquote>${bloc.contenu}</blockquote>`;

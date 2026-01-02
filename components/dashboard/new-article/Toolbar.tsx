@@ -8,7 +8,7 @@ import {
   List, ListOrdered, Image as ImageIcon, Video, Undo, Redo, 
   Loader2
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, getImageUrl } from '@/lib/utils';
 import { ArticleService } from '@/services/article';
 
 interface ToolbarProps {
@@ -45,8 +45,10 @@ export default function Toolbar({ editor }: ToolbarProps) {
         // Si l'extension Tiptap Image de base ne supporte pas d'attributs custom,
         // nous insérons via 'command' standard et mettons à jour les attributs via le DOM ensuite.
         
+        const imageUrl = getImageUrl(media.urlAcces);
+        
         editor.chain().focus().setImage({ 
-            src: media.urlAcces, 
+            src: imageUrl, 
             alt: media.nomOriginal,
             title: media.nomOriginal // Sert souvent de légende par défaut
         }).run();
@@ -55,7 +57,7 @@ export default function Toolbar({ editor }: ToolbarProps) {
         // Ceci est vital pour le parsing plus tard dans NewArticle.tsx
         // Nous le faisons via un petit délai pour laisser Tiptap rendre le node.
         setTimeout(() => {
-            const images = document.querySelectorAll(`img[src="${media.urlAcces}"]`);
+            const images = document.querySelectorAll(`img[src="${imageUrl}"]`);
             images.forEach(img => {
                 img.setAttribute('data-media-id', String(media.id));
                 img.classList.add("article-content-image"); // Classe CSS pour styling
