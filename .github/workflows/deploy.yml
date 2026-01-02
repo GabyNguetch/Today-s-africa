@@ -16,31 +16,32 @@ jobs:
         host: ${{ secrets.SERVER_HOST }}
         username: ${{ secrets.SERVER_USER }}
         key: ${{ secrets.SERVER_SSH_KEY }}
-        port: 22
+        port: ${{ secrets.SERVER_PORT }}
         script: |
-          # Créer le dossier s'il n'existe pas
-          sudo mkdir -p /opt/todayafrica
-          sudo chown $USER:$USER /opt/todayafrica
-          
-          # Cloner ou mettre à jour le dépôt
-          if [ ! -d "/opt/todayafrica/.git" ]; then
-            git clone https://github.com/Folong-zidane/totayafrica.git /opt/todayafrica
-          fi
-          
           cd /opt/todayafrica
+
+          # Arrêt rapide
+          docker-compose down --remove-orphans || true
           
+          # Nettoyage minimal
+          docker container prune -f
+          docker image prune -f
+          
+          
+          
+      
           # Checkout sur la branche frontend
           git fetch origin
           git checkout frontend
           git pull origin frontend
           
-          # Arrêter les conteneurs existants
-          docker-compose down || true
-          
+
+
+         
           # Construire et lancer l'application
-          docker-compose up -d --build
+          docker-compose up -d --build --force-recreate
           
           # Attendre et vérifier
-          sleep 30
+          sleep 50
           docker-compose ps
           echo "✅ Déploiement terminé sur la branche frontend"
