@@ -69,30 +69,6 @@ export default function Navbar() {
         </span>
       </Link>
 
-      {/* 2. NOUVEAUX BOUTONS PRINCIPAUX */}
-      <div className="hidden lg:flex items-center gap-4 flex-1 justify-center">
-        {/* Bouton Intelligence Interculturelle */}
-        <Link href="/intelligence-interculturelle">
-          <Button className="h-9 px-4 bg-[#2563EB] hover:bg-[#1d4ed8] text-white rounded-lg text-xs font-bold uppercase shadow-lg">
-            INTRODUCTION À LA THÉORIE DE L'INTELLIGENCE INTERCULTURELLE
-          </Button>
-        </Link>
-        
-        {/* Bouton Écran Principal (Actualité) */}
-        <Link href="/">
-          <Button className="h-9 px-4 bg-[#059669] hover:bg-[#047857] text-white rounded-lg text-xs font-bold uppercase shadow-lg">
-            ÉCRAN PRINCIPAL (ACTUALITÉ)
-          </Button>
-        </Link>
-        
-        {/* Bouton Cabinet de Conseil */}
-        <Link href="/consulting-cabinet">
-          <Button className="h-9 px-4 bg-[#7C3AED] hover:bg-[#6D28D9] text-white rounded-lg text-xs font-bold uppercase shadow-lg">
-            INTERCULTURAL CONSULTING CABINET
-          </Button>
-        </Link>
-      </div>
-
       {/* 3. LIENS RUBRIQUES (Desktop) - Déplacé après les boutons principaux */}
       <div id="nav-categories" className="hidden lg:flex items-center gap-6 ml-8">
         {rubriques.length === 0 ? (
