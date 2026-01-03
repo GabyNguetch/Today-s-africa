@@ -10,21 +10,53 @@ import {
   validateArticlePayload
 } from "@/types/article";
 
+const API_PROXY = APP_CONFIG.apiUrl; 
+
 export const ArticleService = {
   
   // ==========================================
-  // UPLOAD MÉDIA
+  // MÉDIAS (UPLOAD & GET)
   // ==========================================
   
+  /**
+   * 1. RECUPÉRER VIA ID
+   */
+  getMedia: async (id: string | number): Promise<MediaResponseDto> => {
+    const token = authService.getToken();
+    try {
+        console.log(`🔎 [ArticleService] getMedia demandé pour ID: ${id}`);
+        const res = await fetch(`${API_PROXY}/media/info/${id}`, {
+            headers: token ? { "Authorization": `Bearer ${token}` } : {}
+        });
+
+        if (!res.ok) throw new Error("Média introuvable via l'API");
+        const data = await res.json();
+        
+        // Log important pour débogage
+        console.log("📥 [ArticleService] Données média brutes:", data);
+
+        return ArticleService._formatMediaResponse(data);
+    } catch (error) {
+        console.error("❌ Erreur getMedia:", error);
+        throw error;
+    }
+  },
+
+  /**
+   * 2. UPLOAD FICHIER
+   */
   uploadMedia: async (file: File): Promise<MediaResponseDto> => {
     const token = authService.getToken();
     if (!token) throw new Error("Authentification requise");
 
     const safeName = encodeURIComponent(file.name);
-    const endpoint = `${APP_CONFIG.apiUrl}/media/upload?altText=${safeName}&legende=${safeName}`;
+    // Utilisation des query params pour Swagger
+    const endpoint = `${API_PROXY}/media/upload?altText=${safeName}&legende=${safeName}`;
     
     const fd = new FormData();
-    fd.append("file", file);
+    fd.append("file", file); // Clé 'file' selon swagger
+
+    console.log(`📤 [ArticleService] Début Upload: ${file.name} (${file.size} bytes)`);
 
     const res = await fetch(endpoint, {
       method: "POST",
@@ -34,35 +66,65 @@ export const ArticleService = {
 
     if (!res.ok) {
       const errorText = await res.text();
-      console.error("Upload failed:", errorText);
-      throw new Error(`Erreur upload (${res.status})`);
+      console.error("❌ Echec Upload:", errorText);
+      throw new Error(`Erreur serveur (${res.status}): ${errorText}`);
     }
     
     const data = await res.json();
     
-    // Reconstruction URL si nécessaire
-    let finalUrl = data.urlAcces || "";
-    if (finalUrl && !finalUrl.startsWith("http")) {
-      if (finalUrl.includes("/api/v1/media/file/")) {
-        finalUrl = `http://194.163.175.53:8080${finalUrl}`;
-      } else if (data.hashSha256) {
-        finalUrl = `${APP_CONFIG.mediaBaseUrl}${data.hashSha256}`;
-      }
+    // --- ✅ DEBUG CRUCIAL DEMANDÉ ---
+    console.group("✅ UPLOAD REUSSI");
+    console.log("📦 Réponse Backend:", data);
+    const formatted = ArticleService._formatMediaResponse(data);
+    console.log("🔗 URL RECONSTRUITE POUR LE FRONT:", formatted.urlAcces);
+    console.groupEnd();
+
+    return formatted;
+  },
+
+  /**
+   * HELPER: NORMALISE LA RÉPONSE DU BACKEND
+   * Construit l'URL absolue utilisable par <Image /> et <img>
+   */
+  _formatMediaResponse: (data: any): MediaResponseDto => {
+    // 1. Détecter l'ID
+    let mediaId = data.id;
+    // Si c'est une string ID, on tente le parsing INT si possible, sinon on garde String
+    // Ton ArticleCreateDto veut Int32, mais MediaReadDto a UUID. C'est le point de conflit.
+    // On garde l'original 'id' brut du retour média ici.
+
+    // 2. Construction de l'URL absolue (Priorité absolue !)
+    let finalUrl = "";
+
+    // CAS A: Backend renvoie déjà une URL complète (ex: http://...)
+    if (data.urlAcces && data.urlAcces.startsWith('http')) {
+        finalUrl = data.urlAcces;
+    }
+    // CAS B: Backend renvoie un chemin relatif (ex: /uploads/...)
+    // => On le préfixe avec l'adresse du backend (194.163.175.53:8080)
+    else if (data.urlAcces && data.urlAcces.startsWith('/')) {
+        finalUrl = `${APP_CONFIG.backendUrl}${data.urlAcces}`;
+    }
+    // CAS C: Backend ne renvoie que le hash/filename, pas d'urlAcces
+    else if (data.fileName || data.hashSha256) {
+        // Selon swagger: GET /api/v1/media/file/{filename} ou /uploads/{filename}
+        const identifier = data.fileName || data.hashSha256;
+        finalUrl = `${APP_CONFIG.mediaBaseUrl}${identifier}`; 
+    }
+    else {
+        // Fallback: Si rien ne va
+        finalUrl = "/images/image4.jpeg";
     }
 
-    // CORRECTION: Conversion ID en number
-    const mediaId = typeof data.id === 'string' 
-      ? parseInt(data.id, 10) 
-      : data.id;
-
     return {
-      id: isNaN(mediaId) ? 0 : mediaId,
+      id: mediaId,
       urlAcces: finalUrl,
-      nomOriginal: data.nomOriginal || file.name,
-      typeMime: data.typeMime || file.type,
+      nomOriginal: data.nomOriginal || "media-sans-nom",
+      typeMime: data.typeMime || "image/jpeg",
       hashSha256: data.hashSha256
     };
   },
+
 
   // === CRÉATION ARTICLE ===
   create: async (payload: ArticlePayloadDto): Promise<ArticleReadDto> => {
@@ -129,14 +191,14 @@ export const ArticleService = {
     // Payload cleaning similaire au Create
     const cleanPayload = {
       ...payload,
+      imageCouvertureId: payload.imageCouvertureId ? Number(payload.imageCouvertureId) : null,
       blocsContenu: payload.blocsContenu.map((b, idx) => ({
         ...b,
         ordre: idx,
-        mediaId: (b.mediaId && b.mediaId !== "0") ? b.mediaId : null,
+        mediaId: (b.mediaId && b.mediaId !== "0") ? String(b.mediaId) : null,
         articleId: id 
       }))
     };
-
     const res = await fetch(`${APP_CONFIG.apiUrl}/articles/${id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },

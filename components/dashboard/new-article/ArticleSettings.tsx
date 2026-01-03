@@ -54,6 +54,21 @@ export default function ArticleSettings(props: ArticleSettingsProps) {
     loadRubriques();
   }, []);
 
+  // --- LOGIQUE PREVIEW PAR ID (Cas Edition sans URL) ---
+  // Si on charge un article existant, on a souvent juste l'ID au début, donc on fetch l'URL via getMedia
+  useEffect(() => {
+    // On fetch uniquement si on a un ID, pas d'URL et qu'on ne vient pas d'uploader
+    if (props.coverImageId && !props.coverImageUrl && !isUploading) {
+        console.log("🔄 Récupération de l'image de couverture depuis l'ID:", props.coverImageId);
+        ArticleService.getMedia(props.coverImageId)
+            .then(media => {
+                console.log("🖼️ Media récupéré:", media);
+                props.setCoverImageUrl(media.urlAcces);
+            })
+            .catch(err => console.warn("Erreur chargement preview image", err));
+    }
+  }, [props.coverImageId]); 
+
   const loadRubriques = async () => {
     setIsRubriqueLoading(true);
     try {
@@ -97,56 +112,35 @@ export default function ArticleSettings(props: ArticleSettingsProps) {
     }
   };
 
-  // === UPLOAD MÉDIA (CORRIGÉ) ===
+  // --- 🔥 C'EST ICI QUE CA SE JOUE : UPLOAD HANDLER ---
   const handleCoverUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Validation
-    if (!file.type.startsWith("image/")) {
-      setUploadError("Le fichier doit être une image (JPG, PNG, WEBP).");
-      return;
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      setUploadError("L'image est trop lourde (Max 5MB).");
-      return;
-    }
-
+    // Reset UI
     setIsUploading(true);
     setUploadError(null);
-    
+
     try {
-      const media = await ArticleService.uploadMedia(file);
-      
-      // CORRECTION: Conversion stricte en number
-      let validId: number | null = null;
-      
-      if (media.id) {
-        if (typeof media.id === 'string') {
-          const parsed = parseInt(media.id, 10);
-          if (!isNaN(parsed)) {
-            validId = parsed;
-          }
-        } else if (typeof media.id === 'number') {
-          validId = media.id;
-        }
-      }
-
-      console.log("✅ Upload réussi:", { 
-        url: media.urlAcces, 
-        id: validId,
-        originalId: media.id 
-      });
-
-      const fullImageUrl = getImageUrl(media.urlAcces);
-      props.setCoverImageUrl(fullImageUrl); 
-      props.setCoverImageId(validId);
+        console.log("🚀 Start Cover Upload...");
+        
+        // 1. Upload
+        const media = await ArticleService.uploadMedia(file);
+        
+        // 2. Set ID (si backend renvoie UUID ou int, on stocke)
+        props.setCoverImageId(media.id); 
+        
+        // 3. Set URL de Preview immédiatement
+        // C'est vital: l'UI réagit à props.coverImageUrl, pas à l'ID
+        console.log("📸 Mise à jour UI avec URL:", media.urlAcces);
+        props.setCoverImageUrl(media.urlAcces);
 
     } catch (err: any) {
-      console.error("❌ Upload error:", err);
-      setUploadError(err.message || "Échec de l'envoi vers le serveur.");
+        console.error("Erreur Component Upload:", err);
+        setUploadError("Erreur serveur lors de l'envoi.");
     } finally {
-      setIsUploading(false);
+        setIsUploading(false);
+        e.target.value = ""; // Allow re-upload same file
     }
   };
 
@@ -235,89 +229,50 @@ export default function ArticleSettings(props: ArticleSettingsProps) {
 
       {/* === SECTION 2: IMAGE COUVERTURE === */}
       <div className="bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-xl p-5 shadow-sm">
-        <label className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-3 flex items-center justify-between">
-          Image de Couverture
-          {isUploading && (
-            <span className="text-[#3E7B52] flex items-center gap-1">
-              <Loader2 size={10} className="animate-spin" /> Upload...
-            </span>
-          )}
+        <label className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-3 flex justify-between">
+            Image de Couverture
+            {isUploading && <Loader2 size={12} className="animate-spin text-[#3E7B52]"/>}
         </label>
-
-        {/* Erreur upload */}
-        {uploadError && (
-          <div className="mb-3 text-xs bg-red-50 text-red-600 p-2 rounded flex items-center gap-2 border border-red-100 animate-in fade-in">
-            <AlertCircle size={12} /> {uploadError}
-          </div>
-        )}
         
+        {uploadError && (
+          <div className="mb-2 p-2 bg-red-50 text-red-500 text-xs rounded flex items-center gap-2"><AlertCircle size={12}/>{uploadError}</div>
+        )}
+
         <div className={cn(
           "relative w-full aspect-video border-2 border-dashed rounded-xl overflow-hidden flex flex-col items-center justify-center transition-all group",
-          props.coverImageUrl 
-            ? "border-transparent bg-black" 
-            : "border-gray-200 dark:border-zinc-700 hover:bg-gray-50 dark:hover:bg-zinc-800/50 cursor-pointer"
+          props.coverImageUrl ? "border-transparent bg-black" : "border-gray-200 dark:border-zinc-700 hover:border-[#3E7B52] cursor-pointer"
         )}>
-          
-          {/* Input file */}
-          <input 
-            type="file" 
-            accept="image/*"
-            onChange={handleCoverUpload}
-            className="absolute inset-0 opacity-0 z-20 cursor-pointer w-full h-full"
-            disabled={isUploading}
-            title={props.coverImageUrl ? "Changer l'image" : "Ajouter une image"}
-          />
-
-          {/* État: CHARGEMENT */}
-          {isUploading ? (
-            <div className="flex flex-col items-center gap-2 text-[#3E7B52] z-10">
-              <Loader2 className="animate-spin" size={32} />
-              <span className="text-xs font-bold animate-pulse">Traitement & Upload...</span>
-            </div>
-
-          ) : props.coverImageUrl ? (
-            /* État: IMAGE PRÉSENTE */
-            <>
-              <Image 
-                src={props.coverImageUrl} 
-                alt="Cover Preview" 
-                fill 
-                className="object-cover transition-opacity duration-300 group-hover:opacity-70" 
-                unoptimized={true} 
-              />
-              
-              {/* Overlay */}
-              <div className="absolute inset-0 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10 pointer-events-none">
-                <div className="bg-black/60 text-white px-3 py-1.5 rounded-full text-xs font-bold flex items-center backdrop-blur-md shadow-lg mb-2">
-                  <UploadCloud size={14} className="mr-2" /> Changer
-                </div>
-                <span className="text-[9px] text-white/80 font-mono max-w-[80%] truncate px-2">
-                  ID: {props.coverImageId}
-                </span>
+           <input 
+              type="file" 
+              accept="image/*"
+              onChange={handleCoverUpload}
+              className="absolute inset-0 opacity-0 z-20 cursor-pointer w-full h-full"
+              disabled={isUploading}
+           />
+           
+           {isUploading ? (
+              <div className="flex flex-col items-center text-[#3E7B52]">
+                  <Loader2 size={24} className="animate-spin mb-2"/>
+                  <span className="text-[10px] font-bold uppercase">Téléchargement...</span>
               </div>
-
-              {/* Bouton Delete */}
-              <button 
-                onClick={handleRemoveCover}
-                className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white p-1.5 rounded-lg z-30 shadow-lg opacity-0 group-hover:opacity-100 transition-all transform scale-90 hover:scale-100"
-                title="Supprimer l'image"
-              >
-                <Trash2 size={14} />
-              </button>
-            </>
-
-          ) : (
-            /* État: VIDE */
-            <div className="text-center pointer-events-none p-4">
-              <div className="bg-gray-100 dark:bg-zinc-800 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3 text-gray-400 group-hover:text-[#3E7B52] group-hover:bg-green-50 transition-colors">
-                <ImageIcon size={20} />
-              </div>
-              <p className="text-xs font-bold text-gray-700 dark:text-gray-300">
-                Cliquer pour uploader
-              </p>
-              <p className="text-[9px] text-gray-400 mt-1">PNG, JPG • Max 5MB</p>
-            </div>
-          )}
+           ) : props.coverImageUrl ? (
+              <>
+                 <Image src={props.coverImageUrl} alt="Cover" fill className="object-cover group-hover:opacity-50 transition-opacity" unoptimized/>
+                 <button onClick={handleRemoveCover} className="absolute top-2 right-2 bg-red-500 text-white p-1.5 rounded z-30 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-auto">
+                     <Trash2 size={14}/>
+                 </button>
+                 <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 pointer-events-none">
+                     <span className="bg-black/50 text-white px-3 py-1 rounded-full text-xs backdrop-blur-sm flex gap-2 items-center">
+                        <UploadCloud size={12}/> Changer
+                     </span>
+                 </div>
+              </>
+           ) : (
+               <div className="text-center text-gray-400">
+                   <ImageIcon size={24} className="mx-auto mb-2 opacity-50"/>
+                   <span className="text-[10px] font-bold uppercase">Cliquez pour ajouter</span>
+               </div>
+           )}
         </div>
       </div>
 

@@ -16,7 +16,8 @@ export const APP_CONFIG = {
   year: 2025,
   // ✅ CORRECTION : Utilisation du proxy local Next.js
   apiUrl: "/api/proxy",
-  mediaBaseUrl: "http://194.163.175.53:8080/api/v1/media/file/",
+  backendUrl: "http://194.163.175.53:8080", 
+  mediaBaseUrl: "http://194.163.175.53:8080/api/v1/media/", 
 };
 // ... le reste du fichier
 

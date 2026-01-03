@@ -23,29 +23,42 @@ export function parseJwt(token: string) {
   }
 }
 
-// AJOUT : Fonction pour construire l'URL complète des images
+/**
+ * Construit l'URL complète d'une image
+ * @param imagePath L'URL, le chemin, ou le HASH reçu du backend
+ */
 export function getImageUrl(imagePath: string | null | undefined): string {
   if (!imagePath) {
-    return "/images/image4.jpeg"; // Image par défaut
+    return "/images/image4.jpeg"; // Placeholder par défaut
   }
   
-  // Si c'est déjà une URL complète (http/https)
+  // 1. URL déjà complète (ex: via Cloudinary ou externe)
   if (imagePath.startsWith('http')) {
     return imagePath;
   }
   
-  // Si c'est un chemin relatif commençant par /uploads/ (urlAcces du backend)
-  if (imagePath.startsWith('/uploads/')) {
-    // Construction: baseurl + urlAcces
-    const baseUrl = APP_CONFIG.apiUrl.replace('/api/v1', '');
-    return `${baseUrl}${imagePath}`;
-  }
-  
-  // Fallback pour les images par défaut locales
-  if (imagePath.startsWith('/images/')) {
+  // 2. URL relative classique
+  if (imagePath.startsWith('/images/') || imagePath.startsWith('/icons/')) {
     return imagePath;
   }
-  
-  // Fallback final
-  return "/images/image4.jpeg";
+
+  // 3. Gestion spécifique Backend (API Proxy)
+  // Si le backend renvoie "/uploads/fichier.jpg" ou juste le hash
+  const baseUrl = "http://194.163.175.53:8080/api/v1"; // Hardcodé selon vos docs pour être sûr, ou utilisez APP_CONFIG
+
+  if (imagePath.startsWith('/uploads/')) {
+     // Le serveur Java sert les uploads statiques à la racine ou via un controlleur ?
+     // D'après votre swagger: GET /uploads/{filename} -> tags "static-file-controller"
+     // Donc http://ip:port/uploads/filename
+     return `http://194.163.175.53:8080${imagePath}`;
+  }
+
+  // 4. Cas du Hash/Filename brut renvoyé par MediaReadDto.hashSha256
+  // Swagger: GET /api/v1/media/file/{filename} (Sert le fichier pour affichage direct)
+  if (!imagePath.includes('/')) {
+     // C'est probablement un ID ou un Hash brut
+     return `${baseUrl}/media/file/${imagePath}`;
+  }
+
+  return imagePath;
 }
