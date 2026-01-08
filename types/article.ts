@@ -14,7 +14,8 @@ export interface MediaResponseDto {
 // ==========================================
 // BLOCS DE CONTENU
 // ==========================================
-export type BlockType = 'TEXTE' | 'IMAGE' | 'VIDEO' | 'CITATION';
+// Mise à jour pour inclure VIDEO et AUDIO/FICHIER si nécessaire
+export type BlockType = 'TEXTE' | 'IMAGE' | 'VIDEO' | 'CITATION' | 'PDF';
 
 /**
  * DTO pour création/envoi au backend
@@ -60,6 +61,7 @@ export interface ArticlePayloadDto {
   rubriqueId: number;                 // ID de rubrique valide
   auteurId: number;                   // ID auteur connecté
   imageCouvertureId: number | null;   // ID média ou null
+  imageCouvertureUrl?: string | null; // Pour le transport front, parfois utile
   region: string;                     // Ex: "GLOBAL", "AFRIQUE_OUEST"
   blocsContenu: BlocContenuDto[];     // Liste de blocs complète
   tagIds: number[];                   // Liste d'IDs (peut être vide [])
@@ -120,13 +122,12 @@ export interface Rubrique {
 // HELPERS DE VALIDATION
 // ==========================================
 
-// Validation simplifiée mais robuste
+// Validation simplifiée
 export function validateArticlePayload(payload: ArticlePayloadDto): string[] {
   const errors: string[] = [];
-  if (payload.titre.trim().length < 10) errors.push("Titre trop court (min 10 car.)");
-  if (payload.description.trim().length < 50) errors.push("Résumé trop court (min 50 car.)");
+  if (payload.titre.trim().length < 5) errors.push("Titre trop court");
   if (!payload.rubriqueId) errors.push("Rubrique obligatoire");
-  if (payload.blocsContenu.length === 0) errors.push("L'article est vide");
+  if (payload.blocsContenu.length === 0) errors.push("L'article ne peut pas être vide");
   return errors;
 }
 

@@ -4,7 +4,7 @@
 import React, { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight, Brain, BriefcaseBusiness, FolderOpen } from "lucide-react"; // Ajout de BriefcaseBusiness
+import { ArrowRight, FolderOpen, Loader2, Clock, ArrowLeft, ChevronLeft, Quote } from "lucide-react"; 
 import { Button } from "@/components/ui/Button";
 import ArticleCard from "@/components/ui/ArticleCard";
 import Navbar from "@/components/layout/Navbar";
@@ -13,18 +13,32 @@ import { PublicService } from "@/services/public";
 import { ArticleReadDto, Rubrique } from "@/types/article";
 import { OnboardingTour } from "@/components/ui/OnBoardingTour";
 
-// --- COMPOSANT SKELETON CARD ---
-const SkeletonCard = () => (
-  <div className="flex flex-col h-full bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 rounded-xl overflow-hidden p-4 space-y-4 animate-pulse">
-    <div className="h-48 w-full bg-gray-200 dark:bg-zinc-800 rounded-lg"></div>
-    <div className="space-y-2">
-      <div className="h-4 w-1/4 bg-gray-200 dark:bg-zinc-800 rounded"></div>
-      <div className="h-6 w-full bg-gray-200 dark:bg-zinc-800 rounded"></div>
-      <div className="h-6 w-2/3 bg-gray-200 dark:bg-zinc-800 rounded"></div>
-    </div>
-    <div className="pt-2">
-      <div className="h-3 w-1/3 bg-gray-100 dark:bg-zinc-800 rounded"></div>
-    </div>
+// Nouveaux imports
+import InterculturelSidebar from "@/components/layout/InterculturalSidebar";
+import ConsultingSidebar from "@/components/layout/ConsultingSidebar";
+import { cn, getImageUrl } from "@/lib/utils";
+import LandingArticleCard from "@/components/ui/LandingCard";
+
+// --- COMPOSANT SKELETON CARD (Adapté à la nouvelle grille) ---
+const SectionSkeleton = () => (
+  <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 animate-pulse">
+      {/* Grand article (2 colonnes) */}
+      <div className="md:col-span-2 lg:col-span-2 flex flex-col h-full bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 rounded-xl overflow-hidden p-4 space-y-4">
+        <div className="h-48 w-full bg-gray-200 dark:bg-zinc-800 rounded-lg"></div>
+        <div className="space-y-2">
+           <div className="h-6 w-full bg-gray-200 dark:bg-zinc-800 rounded"></div>
+           <div className="h-6 w-2/3 bg-gray-200 dark:bg-zinc-800 rounded"></div>
+        </div>
+      </div>
+      {/* Petits articles (1 colonne chacun - 4 fois) */}
+      {[1, 2, 3, 4].map(i => (
+        <div key={i} className="col-span-1 flex flex-col h-full bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 rounded-xl overflow-hidden p-4 space-y-4">
+            <div className="h-32 w-full bg-gray-200 dark:bg-zinc-800 rounded-lg"></div>
+            <div className="space-y-2">
+               <div className="h-4 w-full bg-gray-200 dark:bg-zinc-800 rounded"></div>
+            </div>
+        </div>
+      ))}
   </div>
 );
 
@@ -38,8 +52,13 @@ export default function Home() {
   const [latestArticles, setLatestArticles] = useState<ArticleReadDto[]>([]);
   const [sections, setSections] = useState<SectionData[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  // --- STATES CARROUSEL ---
+  const [currentSlide, setCurrentSlide] = useState(0);
+  const [isTransitioning, setIsTransitioning] = useState(false);
+  const [direction, setDirection] = useState<'left' | 'right'>('left');
 
- useEffect(() => {
+  useEffect(() => {
     const initData = async () => {
       setLoading(true);
       try {
@@ -51,7 +70,20 @@ export default function Home() {
           PublicService.getRubriques()
         ]);
 
-        setHeroArticles(trendingData.length > 0 ? trendingData : feedData.content || []);
+        console.log("✅ [HOME] Données Trending:", trendingData);
+        console.log("✅ [HOME] Données Feed:", feedData);
+
+        // On prend les 5 premiers pour le carrousel
+        const carouselSource = trendingData.length > 0 ? trendingData : feedData.content || [];
+        const heroData = carouselSource.slice(0, 5);
+        
+        setHeroArticles(heroData);
+        console.log("🎠 [CAROUSEL] Articles chargés:", heroData.length, "articles");
+        heroData.forEach((art, idx) => {
+          console.log(`   [${idx}] ID: ${art.id}, Titre: ${art.titre}, Image: ${art.imageCouvertureUrl}`);
+        });
+        
+        setLatestArticles(feedData.content || []);
 
         const rootCategories = allRubriques.filter(r => r.parentId === null);
         
@@ -67,7 +99,7 @@ export default function Home() {
         setSections(loadedSections);
 
       } catch(e) {
-        console.error("❌ Erreur chargement Home:", e);
+        console.error("❌ [HOME] Erreur chargement:", e);
       } finally {
         setLoading(false);
       }
@@ -75,223 +107,329 @@ export default function Home() {
     initData();
   }, []);
 
-  const heroArticle = heroArticles.length > 0 ? heroArticles[0] : latestArticles[0];
+  // 2. Logique du Timer (5 secondes) - Auto-play
+  useEffect(() => {
+    if (heroArticles.length <= 1) return;
+
+    const timer = setInterval(() => {
+      console.log("⏰ [CAROUSEL] Timer déclenché - Passage automatique");
+      goToNextSlide();
+    }, 5000);
+
+    return () => clearInterval(timer);
+  }, [heroArticles.length, currentSlide]);
+
+  // Fonctions de navigation avec transition
+  const goToNextSlide = () => {
+    if (isTransitioning) return;
+    console.log(`➡️ [CAROUSEL] Navigation: ${currentSlide} → ${(currentSlide + 1) % heroArticles.length}`);
+    setDirection('left');
+    setIsTransitioning(true);
+    setTimeout(() => {
+      setCurrentSlide((prev) => (prev + 1) % heroArticles.length);
+      setIsTransitioning(false);
+    }, 300);
+  };
+
+  const goToPrevSlide = () => {
+    if (isTransitioning) return;
+    console.log(`⬅️ [CAROUSEL] Navigation: ${currentSlide} → ${(currentSlide - 1 + heroArticles.length) % heroArticles.length}`);
+    setDirection('right');
+    setIsTransitioning(true);
+    setTimeout(() => {
+      setCurrentSlide((prev) => (prev - 1 + heroArticles.length) % heroArticles.length);
+      setIsTransitioning(false);
+    }, 300);
+  };
+
+  const goToSlide = (index: number) => {
+    if (isTransitioning || index === currentSlide) return;
+    console.log(`🎯 [CAROUSEL] Navigation directe: ${currentSlide} → ${index}`);
+    setDirection(index > currentSlide ? 'left' : 'right');
+    setIsTransitioning(true);
+    setTimeout(() => {
+      setCurrentSlide(index);
+      setIsTransitioning(false);
+    }, 300);
+  };
+
+  // Article affiché actuellement
+  const activeArticle = heroArticles[currentSlide];
 
   return (
-    <div className="min-h-screen bg-white dark:bg-black font-sans selection:bg-[#3E7B52] selection:text-white flex flex-col relative">
+    <div className="min-h-screen bg-[#F9F9F9] dark:bg-black font-sans selection:bg-[#3E7B52] selection:text-white flex flex-col relative">
       <Navbar />
 
-{/* ================================================================
-          ZONE DES WIDGETS FLOTTANTS (MODERNE & ANIMÉE)
-         ================================================================ */}
-      
-      {/* 1. Widget Gauche : Intelligence Interculturelle (Thème Bleu) */}
-      <div className="hidden xl:flex fixed top-20 left-8 z-40 animate-in fade-in slide-in-from-left-24 duration-1000 delay-300">
-        <Link href="/intelligence-interculturelle">
-            <div className="group relative">
-                {/* Effet de Halo lumineux au survol (Glow) */}
-                <div className="absolute -inset-1 bg-gradient-to-r from-green-600 to-green-500 rounded-full blur opacity-25 group-hover:opacity-75 transition duration-500 group-hover:duration-200" />
-                
-                {/* Le Bouton lui-même */}
-                <Button className="relative h-auto py-3 pl-3 pr-6 bg-white/80 dark:bg-zinc-900/60 hover:bg-white dark:hover:bg-zinc-900 backdrop-blur-xl border border-green-100 dark:border-green-900/30 text-slate-800 dark:text-white rounded-full flex items-center gap-4 transition-all duration-300 shadow-xl shadow-green-900/5 group-hover:scale-[1.02]">
-                    
-                    {/* Cercle d'icône animé */}
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-green-600 to-green-400 flex items-center justify-center shadow-lg shadow-green-500/30 group-hover:shadow-green-500/50 transition-all duration-300 group-hover:rotate-[360deg]">
-                        <Brain className="w-5 h-5 text-white" />
-                    </div>
-
-                    {/* Texte avec effet de typographie */}
-                    <div className="flex flex-col items-start">
-                        <span className="text-[9px] font-bold text-green-600 dark:text-green-400 uppercase tracking-widest mb-0.5">
-                            Théorie & Analyse
-                        </span>
-                        <span className="text-xs font-bold leading-none max-w-[140px] text-left">
-                            Intelligence Interculturelle
-                        </span>
-                    </div>
-
-                    {/* Petite flèche indicatrice qui apparaît au hover */}
-                    <div className="absolute right-3 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all duration-300">
-                         <div className="w-1.5 h-1.5 border-t-2 border-r-2 border-blue-500 rotate-45" />
-                    </div>
-                </Button>
-            </div>
-        </Link>
-      </div>
-
-      {/* 2. Widget Droite : Consulting Cabinet (Thème Violet) */}
-      <div className="hidden xl:flex fixed top-20 right-8 z-40 animate-in fade-in slide-in-from-right-24 duration-1000 delay-300">
-        <Link href="/consulting-cabinet">
-            <div className="group relative">
-                {/* Effet de Halo lumineux au survol */}
-                <div className="absolute -inset-1 bg-gradient-to-r from-green-600 to-green-500 rounded-full blur opacity-25 group-hover:opacity-75 transition duration-500 group-hover:duration-200" />
-                
-                {/* Le Bouton */}
-                <Button className="relative h-auto py-3 pl-3 pr-6 bg-white/80 dark:bg-zinc-900/60 hover:bg-white dark:hover:bg-zinc-900 backdrop-blur-xl border border-green-100 dark:border-green-900/30 text-slate-800 dark:text-white rounded-full flex items-center gap-4 transition-all duration-300 shadow-xl shadow-green-900/5 group-hover:scale-[1.02]">
-
-                    {/* Texte d'abord (car à droite) */}
-                    <div className="flex flex-col items-end">
-                        <span className="text-[9px] font-bold text-green-600 dark:text-green-400 uppercase tracking-widest mb-0.5">
-                            Expertise & Audit
-                        </span>
-                        <span className="text-xs font-bold leading-none max-w-[150px] text-right">
-                            Cabinet de Consulting
-                        </span>
-                    </div>
-
-                    {/* Cercle d'icône animé */}
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-bl from-green-600 to-green-400 flex items-center justify-center shadow-lg shadow-green-500/30 group-hover:shadow-green-500/50 transition-all duration-300 group-hover:-rotate-12 group-hover:scale-110">
-                        <BriefcaseBusiness className="w-5 h-5 text-white" />
-                    </div>
-                </Button>
-            </div>
-        </Link>
-      </div>
-
-      <main className="max-w-[1400px] mx-auto w-full px-6 md:px-12 py-12 space-y-24 relative z-10">
-        
-        {/* ================================================================
-            1. HERO SECTION (Nettoyée des boutons)
-           ================================================================ */}
-        <section className="bg-white dark:bg-zinc-900 p-0 md:p-8 rounded-3xl dark:border dark:border-zinc-800 flex flex-col lg:flex-row items-center gap-12 relative overflow-hidden">
-          <div className="absolute -top-20 -right-20 w-64 h-64 bg-green-500/10 rounded-full blur-3xl pointer-events-none" />
-
-          {/* Left Content */}
-          <div className="flex-1 flex flex-col gap-6 relative z-10 px-4 md:px-0 mt-8 md:mt-0">
-            <h1 className="text-4xl sm:text-5xl lg:text-[56px] font-extrabold text-[#111] dark:text-white leading-[1.1] tracking-tight">
-              {heroArticle ? heroArticle.titre : (
-                <span>Les Histoires les Plus Importantes qui Façonnent l'Afrique en <span className="text-[#13EC13] inline-block">2026</span></span>
-              )}
-            </h1>
+      {/* --- GRID LAYOUT 3 COLONNES --- */}
+      <div className="w-full max-w-[1600px] mx-auto px-4 md:px-6 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-16 gap-8 items-start relative">
             
-            <p className="text-base sm:text-lg text-gray-600 dark:text-gray-400 font-normal leading-relaxed max-w-xl line-clamp-3">
-              {heroArticle ? heroArticle.description : "Informations vérifiées et analyses approfondies sur l'économie, la politique et le développement à travers le continent."}
-            </p>
-
-            <div className="pt-4">
-              {/* Bouton Principal - Seul ici désormais pour un focus clair */}
-              {heroArticle && (
-                <Link href={`/article/${heroArticle.id}`} className="group inline-block w-full sm:w-auto">
-                  <Button className="w-full sm:w-auto h-12 px-8 bg-gradient-to-r from-[#3E7B52] to-[#13EC13] hover:from-[#2d5c3d] hover:to-[#0fd60f] text-white rounded-lg font-bold text-sm shadow-xl shadow-green-500/20 hover:shadow-2xl transition-all duration-300 flex items-center justify-center gap-2">
-                    <span>Lire l'Article Principal</span>
-                    <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-                  </Button>
-                </Link>
-              )}
+            {/* --- SIDEBAR GAUCHE : INTERCULTUREL --- */}
+            <div className="hidden lg:block lg:col-span-4 sticky top-28 h-[calc(100vh-8rem)] overflow-y-auto no-scrollbar">
+                <InterculturelSidebar />
             </div>
-          </div>
 
-          {/* Right Content - IMAGE */}
-          <div className="flex-1 w-full flex justify-end relative">
-            <div className="relative w-full aspect-video md:aspect-[16/10] lg:h-[450px] rounded-2xl overflow-hidden shadow-2xl shadow-black/20 group border-4 border-white dark:border-zinc-800/50">
-              <Image 
-                src={heroArticle?.imageCouvertureUrl || "/images/image1.png"} 
-                alt="Vision de l'Afrique"
-                fill
-                priority
-                className="object-cover transition-transform duration-700 group-hover:scale-105"
-                unoptimized={true}
-              />
-              <div className="absolute inset-0 bg-gradient-to-tr from-black/60 via-transparent to-transparent opacity-80" />
-            </div>
-          </div>
-        </section>
+            {/* --- COLONNE CENTRALE : CONTENU --- */}
+            <div className="col-span-1 lg:col-span-9 space-y-12">
+                <main className="w-full space-y-5">
+                    
+                {/* === HERO CAROUSEL MODERNISÉ === */}
+                <section className="relative w-full rounded-3xl overflow-hidden group">
+                  {loading ? (
+                    <div className="w-full aspect-[21/9] bg-gray-200 dark:bg-zinc-800 rounded-2xl animate-pulse" />
+                  ) : activeArticle ? (
+                    <div className="flex flex-col gap-0 w-full">
+                      
+                      {/* --- PARTIE IMAGE & TITRE (CARD) --- */}
+                      <div className="relative w-full aspect-[21/9] md:aspect-[21/9] rounded-2xl overflow-hidden shadow-xl border border-gray-100 dark:border-zinc-800">
+                        
+                        {/* Conteneur des slides avec animation */}
+                        <div className="relative w-full h-full">
+                          {heroArticles.map((article, idx) => (
+                            <div
+                              key={article.id}
+                              className={cn(
+                                "absolute inset-0 transition-all duration-500 ease-in-out",
+                                idx === currentSlide 
+                                  ? "opacity-100 translate-x-0 z-10" 
+                                  : idx < currentSlide
+                                  ? "opacity-0 -translate-x-full z-0"
+                                  : "opacity-0 translate-x-full z-0"
+                              )}
+                            >
+                              <Link href={`/article/${article.id}`}>
+                                <Image 
+                                  src={getImageUrl(article.imageCouvertureUrl)} 
+                                  alt={article.titre}
+                                  fill
+                                  priority={idx === 0}
+                                  className="object-cover group-hover:scale-105 transition-transform duration-1000 ease-out"
+                                  unoptimized={true}
+                                />
+                                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent opacity-90" />
+                                
+                                {/* Overlay Titre */}
+                                <div className="absolute bottom-0 left-0 p-6 md:p-8 w-full z-20">
+                                  <div className="flex flex-col items-start gap-3">
+                                    {/* Badge animé */}
+                                    <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#3E7B52] text-white text-[10px] font-black uppercase tracking-wider shadow-lg">
+                                      <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse"></div> 
+                                      À la une
+                                    </span>
+                                    
+                                    {/* Titre */}
+                                    <h1 className="text-xl md:text-3xl lg:text-4xl font-extrabold text-white leading-[1.1] tracking-tight drop-shadow-lg line-clamp-3">
+                                      {article.titre}
+                                    </h1>
 
-        {/* ================================================================
-            2. SECTIONS DYNAMIQUES
-           ================================================================ */}
-        {loading ? (
-           <div className="space-y-16">
-               {[1,2].map(k => (
-                   <div key={k}>
-                       <div className="h-8 w-48 bg-gray-200 dark:bg-zinc-800 rounded mb-6 animate-pulse"/>
-                       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                           {[1,2,3,4].map(i => <SkeletonCard key={i}/>)}
-                       </div>
-                   </div>
-               ))}
-           </div>
-        ) : (
-          sections.map((section) => (
-            <section key={section.rubrique.id} className="pt-8 border-t border-dashed border-gray-200 dark:border-zinc-800 animate-in fade-in slide-in-from-bottom-4 duration-700">
-              
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
-                <div>
-                  <span className="text-[#3E7B52] dark:text-[#13EC13] font-bold tracking-widest text-[10px] uppercase mb-1 block">Explorer</span>
-                  <h2 className="text-3xl font-black text-[#111] dark:text-white uppercase">{section.rubrique.nom}</h2>
-                </div>
-                {section.articles.length > 0 && (
-                    <Link href={`/category/${section.rubrique.id}`}>
-                    <Button variant="outline" className="w-auto h-10 px-5 text-xs font-bold border-gray-300 dark:border-zinc-700 hover:border-[#3E7B52]">
-                        Voir tout
-                    </Button>
-                    </Link>
-                )}
-              </div>
+                                    {/* Metadata */}
+                                    <div className="flex items-center gap-4 text-xs font-medium text-gray-300">
+                                      <span className="flex items-center gap-1.5">
+                                        <FolderOpen size={14} className="text-[#3E7B52]"/> 
+                                        <span className="uppercase tracking-wide">{article.rubriqueNom || "Actualité"}</span>
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+                              </Link>
+                            </div>
+                          ))}
+                        </div>
 
-              {section.articles.length > 0 ? (
-                // CAS AVEC ARTICLES
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                    {section.articles.map((art, idx) => (
-                    <div key={art.id} className={`${idx === 0 ? 'lg:col-span-2' : 'lg:col-span-1'} h-full`}>
-                        <ArticleCard article={art} imageHeight={idx === 0 ? "h-64" : "h-40"} className="h-full"/>
-                    </div>
-                    ))}
-                </div>
-              ) : (
-                // CAS VIDE (DESIGN)
-                <div className="relative rounded-2xl bg-gray-50 dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 p-12 text-center overflow-hidden group">
-                     <div className="absolute top-0 right-0 w-64 h-64 bg-gray-200/50 dark:bg-zinc-800/50 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none group-hover:bg-[#3E7B52]/10 transition-colors duration-700"></div>
-                     <div className="relative z-10 flex flex-col items-center justify-center gap-4">
-                         <div className="h-16 w-16 bg-white dark:bg-zinc-800 rounded-full flex items-center justify-center shadow-sm border border-gray-100 dark:border-zinc-700">
-                             <FolderOpen size={32} className="text-gray-300 dark:text-zinc-600 group-hover:text-[#3E7B52] dark:group-hover:text-[#13EC13] transition-colors" />
-                         </div>
-                         <div>
-                            <h3 className="text-lg font-bold text-gray-500 dark:text-zinc-400">Aucun article pour le moment</h3>
-                            <p className="text-xs text-gray-400 dark:text-zinc-500 max-w-sm mx-auto mt-2 leading-relaxed">
-                                Nos rédacteurs travaillent sur les prochains contenus de la rubrique <span className="font-bold text-gray-600 dark:text-gray-300">{section.rubrique.nom}</span>. Revenez très bientôt !
+                        {/* Navigation Arrows Overlay */}
+                        <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 flex justify-between px-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-30">
+                          <button 
+                            onClick={goToPrevSlide}
+                            disabled={isTransitioning}
+                            className="p-3 bg-black/40 backdrop-blur hover:bg-[#3E7B52] text-white rounded-full transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            <ArrowLeft size={20}/>
+                          </button>
+                          <button 
+                            onClick={goToNextSlide}
+                            disabled={isTransitioning}
+                            className="p-3 bg-black/40 backdrop-blur hover:bg-[#3E7B52] text-white rounded-full transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            <ArrowRight size={20}/>
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* --- PARTIE DESCRIPTION SÉPARÉE --- */}
+                      <div className="pt-4 px-2 min-h-[90px]">
+                        <div className="flex gap-4 items-start">
+                          <Quote size={20} className="text-[#3E7B52]/50 rotate-180 shrink-0 mt-1" />
+                          
+                          <div className="flex-1 space-y-2">
+                            <p 
+                              key={`desc-${currentSlide}`}
+                              className="text-sm italic font-serif text-gray-600 dark:text-zinc-400 leading-relaxed animate-in fade-in slide-in-from-bottom-2 duration-500"
+                            >
+                              "{activeArticle.description || "L'Afrique centrale amorce une transformation décisive. Découvrez les détails de cette analyse exclusive réservée à nos abonnés..."}"
                             </p>
-                         </div>
-                         <Link href={`/category/${section.rubrique.id}`}>
-                            <Button variant="ghost" className="mt-4 text-xs font-bold text-gray-400 hover:text-[#3E7B52]">
-                                Aller à la catégorie <ArrowRight size={14} className="ml-2"/>
-                            </Button>
-                         </Link>
-                     </div>
-                </div>
-              )}
-            </section>
-          ))
-        )}
-        
+                            
+                            {/* Indicateurs (Dots) */}
+                            <div className="flex gap-1.5 pt-2">
+                              {heroArticles.map((_, idx) => (
+                                <button
+                                  key={idx}
+                                  onClick={() => goToSlide(idx)}
+                                  disabled={isTransitioning}
+                                  className={cn(
+                                    "h-1 rounded-full transition-all duration-500 cursor-pointer disabled:cursor-not-allowed",
+                                    idx === currentSlide 
+                                      ? "w-8 bg-[#3E7B52]" 
+                                      : "w-2 bg-gray-300 dark:bg-zinc-700 hover:bg-[#3E7B52]/50"
+                                  )}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
 
-        {/* ================================================================
-            3. CTA FOOTER
-           ================================================================ */}
-        <section className="bg-[#111] dark:bg-zinc-900 rounded-[2rem] p-8 md:p-16 text-center relative overflow-hidden my-12 shadow-2xl">
-          <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-20"></div>
-          <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 via-green-500 to-yellow-500"></div>
-          
-          <div className="relative z-10 max-w-2xl mx-auto space-y-6">
-            <h3 className="text-3xl md:text-4xl font-black text-white">
-              L'Afrique change, nos récits aussi.
-            </h3>
-            <p className="text-gray-400 text-lg">
-              Rejoignez notre newsletter pour recevoir chaque matin l'essentiel de l'économie et de la politique continentale.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-3 justify-center pt-4">
-              <input 
-                type="email" 
-                placeholder="Votre adresse email pro" 
-                className="h-12 px-6 rounded-lg bg-white/10 border border-white/20 text-white placeholder:text-gray-500 outline-none focus:border-[#13EC13] w-full sm:w-80"
-              />
-              <Button className="h-12 px-8 bg-[#13EC13] hover:bg-[#0fd60f] text-black font-bold">
-                S'inscrire gratuitement
-              </Button>
+                    </div>
+                  ) : null}
+                </section>
+                
+                {/* ================================================================
+                        2. SECTIONS DYNAMIQUES (MARQUEE INFINI)
+                    ================================================================ */}
+                    {loading ? (
+                      <div className="space-y-16">
+                          {[1, 2].map((k) => (
+                            <div key={k}>
+                                <div className="h-8 w-48 bg-gray-200 dark:bg-zinc-800 rounded mb-6 animate-pulse"/>
+                                {/* Skeleton Horizontal */}
+                                <div className="flex gap-4 overflow-hidden mask-fade-sides">
+                                     {[1,2,3,4].map(i => <div key={i} className="min-w-[280px] h-64 bg-gray-200 dark:bg-zinc-800 rounded-xl shrink-0"></div>)}
+                                </div>
+                            </div>
+                          ))}
+                      </div>
+                    ) : (
+                        sections.map((section) => {
+                          if (section.articles.length === 0) return null;
+                          
+                          // On duplique les articles pour l'effet de boucle infinie (Seamless loop)
+                          // Si moins de 4 articles, on duplique plusieurs fois pour remplir la largeur
+                          const marqueeContent = section.articles.length < 5 
+                              ? [...section.articles, ...section.articles, ...section.articles, ...section.articles] 
+                              : [...section.articles, ...section.articles];
+
+                          return (
+                            <section key={section.rubrique.id} className="pt-8 border-t border-dashed border-gray-200 dark:border-zinc-800 animate-in fade-in slide-in-from-bottom-4 duration-700 overflow-hidden">
+                                
+                                {/* --- Header de Section --- */}
+                                <div className="flex flex-row items-center justify-between gap-4 mb-6 px-1">
+                                    <h2 className="text-xl md:text-2xl font-black text-[#111] dark:text-white uppercase flex items-center gap-2">
+                                        <span className="w-1.5 h-6 bg-[#3E7B52] rounded-full"></span>
+                                        {section.rubrique.nom}
+                                    </h2>
+                                    <Link href={`/category/${section.rubrique.id}`}>
+                                        <button className="text-xs font-bold text-gray-500 hover:text-[#3E7B52] flex items-center gap-1 transition-colors px-3 py-1 rounded-full border border-transparent hover:border-gray-200 dark:hover:border-zinc-800">
+                                            Tout voir <ArrowRight size={12}/>
+                                        </button>
+                                    </Link>
+                                </div>
+
+                                {/* --- ZONE MARQUEE AUTOMATIQUE --- */}
+                                {/* Mask CSS pour fondre les bords (optionnel pour l'élégance) */}
+                                <div className="relative w-full [mask-image:_linear-gradient(to_right,transparent_0,_black_128px,_black_calc(100%-128px),transparent_100%)]">
+                                    
+                                    <div 
+                                        className="flex gap-5 py-4 w-max animate-scroll hover:[animation-play-state:paused]"
+                                        style={{ 
+                                            // La vitesse s'ajuste selon le nombre d'éléments pour garder un rythme constant
+                                            animationDuration: `${marqueeContent.length * 6}s` 
+                                        }}
+                                    >
+                                        {marqueeContent.map((art, idx) => (
+                                            <div 
+                                                // La clé idx est nécessaire ici car on a dupliqué les articles (mêmes IDs)
+                                                key={`${art.id}-${idx}`} 
+                                                className="w-[280px] md:w-[300px] shrink-0" 
+                                            >
+                                                <LandingArticleCard 
+                                                    article={art} 
+                                                    // Tous la même taille compacte
+                                                    imageHeight="h-40" 
+                                                    className="h-full bg-white dark:bg-zinc-900 shadow-sm hover:shadow-lg hover:scale-[1.02] border border-gray-100 dark:border-zinc-800"
+                                                />
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                </div>
+                            </section>
+                          );
+                        })
+                    )}
+
+                    {/* Styles Globaux injectés pour l'animation scroll */}
+                    <style jsx global>{`
+                        @keyframes scroll {
+                            0% { transform: translateX(0); }
+                            100% { transform: translateX(-50%); }
+                        }
+                        .animate-scroll {
+                            animation: scroll 40s linear infinite;
+                        }
+                        /* Ajout d'une pause au survol pour permettre le clic facile */
+                        .animate-scroll:hover {
+                            animation-play-state: paused;
+                        }
+                    `}</style>
+
+                    {/* ================================================================
+                        3. CTA FOOTER
+                    ================================================================ */}
+                    <section className="bg-[#111] dark:bg-zinc-900 rounded-[2rem] p-8 md:p-12 text-center relative overflow-hidden shadow-2xl">
+                    <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-20"></div>
+                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 via-green-500 to-yellow-500"></div>
+                    
+                    <div className="relative z-10 max-w-lg mx-auto space-y-6">
+                        <h3 className="text-2xl md:text-3xl font-black text-white">
+                        L'Afrique change, nos récits aussi.
+                        </h3>
+                        <p className="text-gray-400 text-sm md:text-base">
+                        Rejoignez notre newsletter pour recevoir l'essentiel de l'économie et de la politique continentale.
+                        </p>
+                        <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
+                        <input 
+                            type="email" 
+                            placeholder="Email professionnel" 
+                            className="h-11 px-6 rounded-full bg-white/10 border border-white/20 text-white placeholder:text-gray-500 outline-none focus:border-[#13EC13] focus:bg-white/20 w-full text-sm transition-all"
+                        />
+                        <Button className="h-11 px-8 rounded-full bg-[#13EC13] hover:bg-[#0fd60f] text-black font-bold text-sm">
+                            S'inscrire
+                        </Button>
+                        </div>
+                    </div>
+                    </section>
+                </main>
             </div>
-          </div>
-        </section>
-      </main>
+
+            {/* --- SIDEBAR DROITE : CONSULTING --- */}
+            <div className="hidden lg:block lg:col-span-3 sticky top-28 h-[calc(100vh-8rem)] overflow-y-auto no-scrollbar">
+                <ConsultingSidebar />
+            </div>
+
+        </div>
+
+        {/* --- MOBILE ONLY FOOTER LINKS --- */}
+        <div className="lg:hidden mt-16 pt-8 border-t border-gray-200 dark:border-zinc-800 grid grid-cols-2 gap-4">
+             <Link href="/intelligence-interculturelle" className="p-4 bg-green-50 dark:bg-green-900/10 rounded-xl text-center">
+                 <h4 className="font-bold text-[#3E7B52] text-sm mb-1">Analyse</h4>
+                 <p className="text-[10px] text-gray-500">Intelligence Interculturelle</p>
+             </Link>
+             <Link href="/consulting-cabinet" className="p-4 bg-gray-50 dark:bg-zinc-900 rounded-xl text-center">
+                 <h4 className="font-bold text-gray-800 dark:text-gray-200 text-sm mb-1">Cabinet</h4>
+                 <p className="text-[10px] text-gray-500">Services & Conseil</p>
+             </Link>
+        </div>
+
+      </div>
       
       <Footer />
       <OnboardingTour /> 
